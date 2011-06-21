@@ -28,9 +28,27 @@ namespace {
     
   };
 
-    std::map<Instruction*,int> m; 
+  std::map<Instruction*,int> mmm; 
+  int counter = 0;
 
-  value convertConstant(const Constant *C) {
+  template <class T, class IT> value convertList(const iplist<T> *L) {
+    errs() << "Converting list\n";
+    value l = Val_int(0);
+    value tmp = Val_int(0);
+    for (IT I = L->begin(), E = L->end(); I != E; ++I) {
+      value cell = caml_alloc(2,0);
+      value a = convert(I); 
+      Store_field(cell,0,a);
+      Store_field(cell,1,Val_int(0));
+      if (l == Val_int(0)) l = cell;
+      if (tmp != Val_int(0)) Store_field(tmp,1,cell); 
+      tmp = cell;
+    }
+    
+    return l;
+  }  
+
+  value convert(const Constant *C) {
     
     value constant = Val_int(0);
 
@@ -46,10 +64,10 @@ namespace {
     return constant;
   }
 
-  value convertUser(const Value *V) {
+  value convert(const Value *V) {
     value user = Val_int(0);
     if (isa<Constant>(V)) {
-      user = convertConstant(cast<Constant>(V));
+      user = convert(cast<Constant>(V));
       }
    
     return user;
@@ -64,7 +82,7 @@ namespace {
   }
 
   value mkTermInstruction(int i) {
-    value inst = caml_alloc(1,i); // WATCH OUT
+    value inst = caml_alloc(1,i-1); // WATCH OUT
     Store_field(inst,0,Val_int(0)); // DUMMY, WILL NEED REFINEMENT
     return inst;
   }
@@ -75,81 +93,30 @@ namespace {
     return inst;
   }
 
-  value convertInst(const Instruction *I) {
+  value convert(const Instruction *I) {
     errs() << "Instruction: " << *I << "\n";
     value inst = Val_int(0);
     int op = I->getOpcode();
     if (I->isTerminator())
       inst = mkTermInstruction(op);
-    if (I->isBinaryOp())  
+    if (I->isBinaryOp()) 
       inst = mkBinInstruction(op);
     if (op >= 26 && op <= 29)
       inst = mkMemInstruction(op);
 
     return inst;
   }
-
-//   template <class T> value convert(const iplist<T> *L) {
-//     value l = Val_int(0);
-//     value tmp = Val_int(0);
-//     for (iplist<T>::const_iterator I = L->begin(), E = L->end(); I != E; ++I) {
-//       value cell = caml_alloc(2,0);
-//       value a = convert(I); 
-//       Store_field(cell,0,a);
-//       Store_field(cell,1,Val_int(0));
-//       if (l == Val_int(0)) l = cell;
-//       if (tmp != Val_int(0)) Store_field(tmp,1,cell); 
-//       tmp = cell;
-//     }
     
-//     return l;
-//   }  
-  
-  
-  value convertInstList(const BasicBlock::InstListType *L) {
-    errs() << "Converting Inst List\n";
-    value l = Val_int(0);
-    value tmp = Val_int(0);
-    for (BasicBlock::const_iterator I = L->begin(), E = L->end(); I != E; ++I) {
-      value cell = caml_alloc(2,0);
-      value a = convertInst(I);
-      Store_field(cell,0,a);
-      Store_field(cell,1,Val_int(0));
-      if (l == Val_int(0)) l = cell;
-      if (tmp != Val_int(0)) Store_field(tmp,1,cell); 
-      tmp = cell;
-    }
-    
-    return l;
-  }    
-
-  value convertBasicBlock(const BasicBlock *B) {
+  value convert(const BasicBlock *B) {
     errs() << "Converting basic block\n";
     value block = caml_alloc(2,0);
     Store_field(block,0,caml_copy_string(B->getNameStr().c_str()));
-    Store_field(block,1,convertInstList(&B->getInstList()));
+    value l = convertList<Instruction,BasicBlock::const_iterator>(&B->getInstList());
+    Store_field(block,1,l);
     return block;
   }
 
-
-  value convertBody(const Function::BasicBlockListType *L) {
-    errs() << "Converting Body\n";
-    value l = Val_int(0);
-    value tmp = Val_int(0);
-    for (Function::const_iterator I = L->begin(), E = L->end(); I != E; ++I) {
-      value cell = caml_alloc(2,0);
-      value a = convertBasicBlock(I);
-      Store_field(cell,0,a);
-      Store_field(cell,1,Val_int(0));
-      if (l == Val_int(0)) l = cell;
-      if (tmp != Val_int(0)) Store_field(tmp,1,cell); 
-      tmp = cell;
-    }
-    
-    return l;
-  }
-
-  value convertArgument(const Argument *A) {
+  value convert(const Argument *A) {
     errs() << "converting argument\n";
     const Type *t = A->getType();
     value s = caml_copy_string((A->getNameStr()).c_str());
@@ -160,31 +127,14 @@ namespace {
     return arg;
   }
 
-  value convertArgumentList(const Function::ArgumentListType *L) {
-    errs() << "Converting arguments list\n";
-    value l = Val_int(0);
-    value tmp = l;
-    for (Function::const_arg_iterator I = L->begin(), E = L->end(); I != E; ++I) {
-      value cell = caml_alloc(2,0);
-      value a = convertArgument(I);
-      Store_field(cell,0,a);
-      Store_field(cell,1,Val_int(0));
-      if (l == Val_int(0)) l = cell;
-      if (tmp != Val_int(0)) Store_field(tmp,1,cell); 
-      tmp = cell;
-    }
-    
-    return l;
-  }
-
-  value convertFunction (const Function *F) {
+  value convert (const Function *F) {
     errs () << "Converting function\n";
     value f = caml_alloc(3,0);
     value s = caml_copy_string(F->getNameStr().c_str());
     Store_field(f,0,s);
-    value args = convertArgumentList(&F->getArgumentList());
+    value args = convertList<Argument,Function::const_arg_iterator>(&F->getArgumentList());
     Store_field(f,1,args);
-    value body = convertBody(&F->getBasicBlockList());
+    value body = convertList<BasicBlock,Function::const_iterator>(&F->getBasicBlockList());
     Store_field(f,2,body);
     
     return f;
@@ -193,7 +143,7 @@ namespace {
 
   bool Ali::runOnFunction(Function &F) {
     errs() << "Conversion\n\n";
-    value v = convertFunction(&F);
+    value v = convert(&F);
     errs() << "\n\nTransformation\n\n";
     value tmp = caml_callback(*caml_named_value("transform"),v); 
     errs() << "\n\nEnd\n\n";
