@@ -3,6 +3,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Constants.h"
 
+#include <map>
+
 extern "C"{
 #include </usr/local/lib/ocaml/caml/mlvalues.h>
 #include </usr/local/lib/ocaml/caml/alloc.h>
@@ -14,16 +16,19 @@ using namespace llvm;
 
 namespace {
 
- struct Ali : public FunctionPass {
-   static char ID;
-   Ali() : FunctionPass(ID) {
-     char* t[1] = {"crap"}; 
-     caml_startup(t);         
-   }
-   
-   virtual bool runOnFunction(Function &F);
+  class Ali : public FunctionPass {
+  public:
+    static char ID;
+    Ali() : FunctionPass(ID) {
+      char* t[1] = {"crap"}; 
+      caml_startup(t);         
+    }
+    
+    virtual bool runOnFunction(Function &F);
+    
+  };
 
- };
+    std::map<Instruction*,int> m; 
 
   value convertConstant(const Constant *C) {
     
@@ -198,6 +203,6 @@ namespace {
 
   char Ali::ID = 0;
 
-  static RegisterPass<Ali> X("caml", "Caml Pass", false , false );
+  static RegisterPass<Ali> X("ali", "Ali Pass", false , false );
 
 }
