@@ -14,9 +14,9 @@ using namespace llvm;
 
 namespace {
 
- struct Caml : public FunctionPass {
+ struct Ali : public FunctionPass {
    static char ID;
-   Caml() : FunctionPass(ID) {
+   Ali() : FunctionPass(ID) {
      char* t[1] = {"crap"}; 
      caml_startup(t);         
    }
@@ -186,7 +186,7 @@ namespace {
     
   }
 
-  bool Caml::runOnFunction(Function &F) {
+  bool Ali::runOnFunction(Function &F) {
     errs() << "Conversion\n\n";
     value v = convertFunction(&F);
     errs() << "\n\nTransformation\n\n";
@@ -196,8 +196,8 @@ namespace {
     return false;
   }
 
-  char Caml::ID = 0;
+  char Ali::ID = 0;
 
-  static RegisterPass<Caml> X("caml", "Caml Pass", false , false );
+  static RegisterPass<Ali> X("caml", "Caml Pass", false , false );
 
 }

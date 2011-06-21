@@ -1,3 +1,12 @@
+open Ali;;
 
-Ali.register (fun x -> x);;
+Printf.printf "Plugin Running\n";;
+flush stdout;;
+
+let f (x : program) = 
+  print x; flush stdout; x
+;;
+
+register f;;
+
 
