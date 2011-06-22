@@ -32,12 +32,27 @@ type fcmpOp =
   | Oeq | Ogt | Oge | Olt | Ole | One | ORD
   | Ueq | Ugt | Uge | Ult | Ule | Une | Uno
   
+(* Missing constant expressions *)
 type constant =
-  | Int
-  | FP
+  | True
+  | False
+  | I of int64
+  | F of float
+  | Null
+  | StructC of constant list
+  | ArrayC of constant list
+  | VectorC of constant list
+  | ZeroInitializer
+  | MetadataC of constant list
+  | Glob of string
+  | Fun of string
+  | Undef
+  | Blockaddress of string * string
   | NYI
 
-type var = string
+type operand = 
+  | Const of constant
+  | Var of string
 
 type instruction = 
   | Ret of string 
@@ -47,7 +62,7 @@ type instruction =
   | Invoke of string
   | Unwind of string
   | Unreachable of string
-  | BinOp of bop * string * string
+  | BinOp of bop * operand * operand
   | Alloca of string
   | Load of string
   | Store of string
@@ -85,6 +100,15 @@ let rec print_type oc t =
     | VectorT t -> Printf.fprintf oc "<%a>" print_type t
     | _ -> f "Type WTF?"
   
+let print_constant oc c = 
+  match c with
+    | I i -> Printf.fprintf oc " %s " (Int64.to_string i)
+    | _ -> Printf.fprintf oc "NYI"
+
+let print_operand oc o = 
+  match o with
+    | Const c ->  Printf.fprintf oc " %a " print_constant c ; flush stdout
+    | Var v ->  Printf.fprintf oc " %s " v
 
 let print_bop oc b = 
   let s = 
@@ -108,7 +132,7 @@ let print_bop oc b =
       | Or -> " | "
       | Xor -> " ^ "
   in
-  Printf.fprintf oc "%s" s
+  Printf.fprintf oc "%s" s; flush stdout
 ;;
 
 let print_instruction oc i =
@@ -120,7 +144,7 @@ let print_instruction oc i =
     | Invoke _ -> Printf.fprintf oc "Invoke"
     | Unwind _ -> Printf.fprintf oc "Unwind"
     | Unreachable _ -> Printf.fprintf oc "Unreachable"
-    | BinOp (o,e1,e2) -> Printf.fprintf oc "%s %a %s" "e1" print_bop o "e2"
+    | BinOp (o,e1,e2) -> Printf.fprintf oc "%a %a %a" print_bop o print_operand e1 print_operand e2
     | Alloca _ -> Printf.fprintf oc "Alloca"
     | Load _ -> Printf.fprintf oc "Load"
     | Store _ -> Printf.fprintf oc "Store"
@@ -131,7 +155,7 @@ let print_instruction oc i =
 let print_basicBlock oc b = 
   Printf.fprintf oc "\n";
   Printf.fprintf oc "%s\n" b.label;
-  List.iter (fun i -> print_instruction oc i; Printf.fprintf oc "\n") b.instrs  
+  List.iter (fun i -> print_instruction oc i; Printf.fprintf oc "\n"; flush stdout) b.instrs  
 
 let print_body oc =
   List.iter (print_basicBlock oc) 

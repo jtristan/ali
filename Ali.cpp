@@ -6,6 +6,7 @@
 #include "llvm/DerivedTypes.h"
 
 #include <map>
+#include <sstream>
 
 extern "C"{
 #include </usr/local/lib/ocaml/caml/mlvalues.h>
@@ -57,7 +58,7 @@ namespace {
       Store_field(typ,0,bitwidth);
     }
     if (isa<SequentialType>(T)) {
-      typ = caml_alloc(2,T->getTypeID() - 9); // WATCH OUT
+      typ = caml_alloc(2,T->getTypeID() - 9); 
       value arg = convert(cast<SequentialType>(T)->getElementType());
       Store_field(typ,0,arg);
     }
@@ -93,35 +94,55 @@ namespace {
 
 
   value convert(const Constant *C) {
-    
+    errs() << "Converting Constant\n";
     value constant = Val_int(0);
 
     if (isa<ConstantInt>(C)) {
-      constant = Val_int(0);
+      constant = caml_alloc(1,0);
+      value v = caml_copy_int64(cast<ConstantInt>(C)->getSExtValue());
+      Store_field(constant,0,v);
     }
     else if (isa<ConstantFP>(C)) {
       constant = Val_int(1);
     }
     else {
-      constant = Val_int(2);
+      constant = Val_int(5);
     }
     return constant;
   }
-
-  value convert(const Value *V) {
-    value user = Val_int(0);
-    if (isa<Constant>(V)) {
-      user = convert(cast<Constant>(V));
-      }
-   
-    return user;
-  }
   
-  value mkBinInstruction(int i) {
+  // Is it really User? What is the Op inheriting from User?
+  value convert(const User *U) {
+    errs() << "Converting User\n";
+    value user = Val_int(0);
+    // Get the variable correspong to the instruction
+    if (isa<Instruction>(U)) {
+      user = caml_alloc(1,1);
+      std::string var;
+      std::ostringstream out;
+      out << U;
+      var = out.str();
+      Store_field(user,0,caml_copy_string(var.c_str()));
+    }      
+    // convert the constant
+    if (isa<Constant>(U)) {
+      user = caml_alloc(1,0);
+      Store_field(user,0,convert(cast<Constant>(U)));
+    }
+    // Shoud there be a 3rd case for Operator???
+
+    return user;
+    
+  }
+
+  // My Use of User may be awckward it's that a user can be an instruction
+  // or a constant but rather that instruction and constant really inherit stuff
+  // from User (as opposed to type or constant that are interfaces for instance)
+  value mkBinInstruction(const Instruction *I) {
     value inst = caml_alloc(3,7);
-    Store_field(inst,0,Val_int(i - 8)); // WATCH OUT
-    Store_field(inst,1,Val_int(0));
-    Store_field(inst,2,Val_int(0));
+    Store_field(inst,0,Val_int(I->getOpcode() - 8)); // WATCH OUT
+    Store_field(inst,1,convert(cast<User>(I->getOperand(0)))); 
+    Store_field(inst,2,convert(cast<User>(I->getOperand(1))));
     return inst;
   }
 
@@ -144,7 +165,7 @@ namespace {
     if (I->isTerminator())
       inst = mkTermInstruction(op);
     if (I->isBinaryOp()) 
-      inst = mkBinInstruction(op);
+      inst = mkBinInstruction(I);
     if (op >= 26 && op <= 29)
       inst = mkMemInstruction(op);
 
