@@ -1,4 +1,22 @@
 
+type typ =
+  | Void
+  | Float
+  | Double
+  | X86_FP80
+  | FP128
+  | PPC_FP128
+  | Label
+  | Metadata
+  | X86_MMX
+  | Opaque
+  | IntT of int32 
+  | FunctionT of typ * typ list
+  | StructT of typ list 
+  | ArrayT of typ
+  | PointerT of typ
+  | VectorT of typ
+
 type bop = 
   | Add | FAdd | Sub | FSub
   | Mul | FMul | UDiv | SDiv | FDiv
@@ -45,9 +63,28 @@ type instruction =
 type basicBlock = {label: string; instrs: instruction list}
 type code = basicBlock list
 
-type arg = {nam: string; typ: int}
+type arg = {nam: string; typ: typ}
 type program = {name: string; args: arg list; body: code}
 type transform = program -> program
+
+let rec print_type oc t = 
+  let f = fun s -> Printf.fprintf oc " %s " s in 
+  match t with
+    | Void -> f "void"
+    | Float -> f "float"
+    | Double -> f "double"
+    | X86_FP80 -> f "x86_fp80"
+    | FP128 -> f "fp128"
+    | PPC_FP128 -> f "ppc_fp128"
+    | X86_MMX -> f "x86_mmx"
+    | Label -> f "label"
+    | Metadata -> f "Metadata"
+    | IntT width -> f ("int"^Int32.to_string width) 
+    | ArrayT t -> Printf.fprintf oc "[%a]" print_type t
+    | PointerT t -> Printf.fprintf oc "%a*" print_type t
+    | VectorT t -> Printf.fprintf oc "<%a>" print_type t
+    | _ -> f "Type WTF?"
+  
 
 let print_bop oc b = 
   let s = 
@@ -100,7 +137,7 @@ let print_body oc =
   List.iter (print_basicBlock oc) 
 
 let print_args oc args = 
-  List.iter (fun arg -> Printf.fprintf oc "%s: %s; " arg.nam "type") args
+  List.iter (fun arg -> Printf.fprintf oc "%s: %a; " arg.nam print_type arg.typ) args
 
 let print_function oc f = 
   Printf.fprintf oc "{name: %s;\n args: %a;\n body: %a\n}" f.name print_args f.args print_body f.body 

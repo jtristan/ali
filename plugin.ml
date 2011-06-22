@@ -38,7 +38,7 @@ try
   Printf.printf "Loading the standard library\n";
   loadfile "/usr/local/lib/ocaml/stdlib.cma";
   Printf.printf "Loading the academic LLVM interface/n";
-  loadfile "/Users/jean-baptistetristan/Code/llvm-2.9/lib/Transforms/Caml/ali.cmo";
+  loadfile "/Users/jean-baptistetristan/Code/llvm-2.9/lib/Transforms/ali/ali.cmo";
   Printf.printf "Loading your plugin/n";
   loadfile path
 with

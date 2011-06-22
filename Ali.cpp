@@ -2,6 +2,8 @@
 #include "llvm/Function.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Constants.h"
+#include "llvm/Type.h"
+#include "llvm/DerivedTypes.h"
 
 #include <map>
 
@@ -28,9 +30,6 @@ namespace {
     
   };
 
-  std::map<Instruction*,int> mmm; 
-  int counter = 0;
-
   template <class T, class IT> value convertList(const iplist<T> *L) {
     errs() << "Converting list\n";
     value l = Val_int(0);
@@ -47,6 +46,51 @@ namespace {
     
     return l;
   }  
+
+  value convert(const Type *T) {
+    errs() << "Converting types\n";
+    value typ = Val_int(0);
+    if (T->isPrimitiveType()) typ = Val_int(T->getTypeID());
+    if (T->isIntegerTy()) {
+      typ = caml_alloc(1,0);
+      value bitwidth = caml_copy_int32(cast<IntegerType>(T)->getBitWidth());
+      Store_field(typ,0,bitwidth);
+    }
+    if (isa<SequentialType>(T)) {
+      typ = caml_alloc(2,T->getTypeID() - 9); // WATCH OUT
+      value arg = convert(cast<SequentialType>(T)->getElementType());
+      Store_field(typ,0,arg);
+    }
+    if (T->isStructTy()) {
+      typ = caml_alloc(1,2);
+      value current = Val_int(0);
+      for (unsigned i = 0; i < cast<StructType>(T)->getNumElements(); ++i) {
+	value cell = caml_alloc(2,0);
+	Store_field(cell,0,convert(cast<StructType>(T)->getElementType(i)));
+	Store_field(cell,1,Val_int(0));
+	Store_field(current,1,cell);
+	if (typ == Val_int(0)) Store_field(typ,0,cell);
+	current = cell;
+      }
+    }
+    if (T->isOpaqueTy()) typ = Val_int(9);
+    if(T->isFunctionTy()) {
+      typ = caml_alloc(2,1);
+      Store_field(typ,0,convert(cast<FunctionType>(T)->getReturnType()));
+      value current = Val_int(0);
+      for (unsigned i = 0; i < cast<FunctionType>(T)->getNumParams(); ++i) {
+	value cell = caml_alloc(2,0);
+	Store_field(cell,0,convert(cast<FunctionType>(T)->getParamType(i)));
+	Store_field(cell,1,Val_int(0));
+	Store_field(current,1,cell);
+	if (typ == Val_int(0)) Store_field(typ,1,cell);
+	current = cell;
+      }
+    }
+
+    return typ;
+  }
+
 
   value convert(const Constant *C) {
     
@@ -123,7 +167,7 @@ namespace {
     value arg = caml_alloc(2,0);
     // First name, Second type
     Store_field(arg,0,s);
-    Store_field(arg,1,Val_int(0)); // TODO
+    Store_field(arg,1,convert(t)); 
     return arg;
   }
 
@@ -145,7 +189,7 @@ namespace {
     errs() << "Conversion\n\n";
     value v = convert(&F);
     errs() << "\n\nTransformation\n\n";
-    value tmp = caml_callback(*caml_named_value("transform"),v); 
+    caml_callback(*caml_named_value("transform"),v); 
     errs() << "\n\nEnd\n\n";
     errs() << "Caml: " << F.getNameStr() << "\n";
     return false;
