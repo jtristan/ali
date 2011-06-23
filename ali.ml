@@ -1,4 +1,8 @@
 
+type 'a option = 
+  | None
+  | Some of 'a
+
 type typ =
   | Void
   | Float
@@ -124,30 +128,46 @@ let print_operand oc o =
     | Const c ->  Printf.fprintf oc "%a" print_constant c ; flush stdout
     | Var v ->  Printf.fprintf oc "%s" v
 
+let string_wrap w = 
+  match w with
+    | Wnone -> ""
+    | Wnsw -> "nsw"
+    | Wnuw -> "nuw"
+    | Wboth -> "nuw nsw"
+
+let string_exact b = if b then "exact" else ""
+
 let print_bop oc b = 
   let s = 
     match b with 
-      | Add _ -> "add"
+      | Add x -> "add "^string_wrap x 
       | FAdd -> "fadd"
-      | Sub _ -> "sub"
+      | Sub x -> "sub "^string_wrap x 
       | FSub -> "fsub"
-      | Mul _ -> "mul"
+      | Mul x -> "mul "^string_wrap x 
       | FMul -> "fmul"
-      | UDiv _ -> "udiv"
-      | SDiv _ -> "sdiv"
+      | UDiv x -> "udiv "^string_exact x
+      | SDiv x -> "sdiv "^string_exact x
       | FDiv -> "fdiv"
       | URem ->  "urem"
       | SRem -> "srem"
       | FRem -> "frem"
-      | Shl _ -> "shl"
-      | LShr _ -> "lshr"
-      | AShr _ -> "ashr"
+      | Shl x -> "shl "^string_wrap x 
+      | LShr x -> "lshr "^string_exact x
+      | AShr x -> "ashr "^string_exact x
       | And -> "and"
       | Or -> "or"
       | Xor -> "xor"
   in
   Printf.fprintf oc "%s" s; flush stdout
 ;;
+
+let print_align oc a = 
+  match a with
+    | None -> Printf.fprintf oc ""
+    | Some a -> Printf.fprintf oc ", align %s" (Int32.to_string a)
+
+let string_volatile v = if v then "volatile" else ""
 
 let print_instruction oc i =
   match i with
@@ -160,7 +180,7 @@ let print_instruction oc i =
     | Unreachable _ -> Printf.fprintf oc "Unreachable"
     | BinOp (dst,o,t,e1,e2) -> Printf.fprintf oc "%s = %a %a %a, %a" dst print_bop o print_type t print_operand e1 print_operand e2
     | Alloca _ -> Printf.fprintf oc "Alloca"
-    | Load _ -> Printf.fprintf oc "Load"
+    | Load (dst,vol,t,o,al) -> Printf.fprintf oc "%s = %s load %a %a %a" dst (string_volatile vol) print_type t print_operand o print_align al
     | Store _ -> Printf.fprintf oc "Store"
     | GetElelemtPtr _ -> Printf.fprintf oc "GetElementPtr"
     | _ -> Printf.fprintf oc "Instruction NYI\n"

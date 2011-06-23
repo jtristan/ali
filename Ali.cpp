@@ -5,6 +5,7 @@
 #include "llvm/Type.h"
 #include "llvm/DerivedTypes.h"
 #include "llvm/InstrTypes.h"
+#include <llvm/Instructions.h>
 
 #include <map>
 #include <sstream>
@@ -121,7 +122,7 @@ namespace {
       user = caml_alloc(1,1);
       std::string var;
       std::ostringstream out;
-      out << U;
+      out << "%" << U;
       var = out.str();
       Store_field(user,0,caml_copy_string(var.c_str()));
     }      
@@ -163,13 +164,18 @@ namespace {
   value mkOpcode(const Instruction *I) {
     value op;
     bool b;
+    int wrap = 0;
     switch (I->getOpcode()) {
     case Instruction::Add: 
     case Instruction::Sub:
     case Instruction::Mul:
     case Instruction::Shl:
       op = caml_alloc(1,translateOpcode(I->getOpcode()));
-      Store_field(op,0,Val_int(0)); // Implement the wrapping possibilities
+      if (cast<BinaryOperator>(I)->hasNoUnsignedWrap()) 
+	if (cast<BinaryOperator>(I)->hasNoSignedWrap()) wrap = 3;
+	else wrap = 2;
+      else if (cast<BinaryOperator>(I)->hasNoSignedWrap()) wrap = 1;
+      Store_field(op,0,Val_int(wrap)); 
       return op;
     case Instruction::UDiv:
     case Instruction::SDiv:
@@ -192,8 +198,12 @@ namespace {
   // from User (as opposed to type or constant that are interfaces for instance)
   value mkBinInstruction(const Instruction *I) {
     value inst = caml_alloc(5,7);
-    Store_field(inst,0,caml_copy_string("dst"));
-    Store_field(inst,1,mkOpcode(I)); // To Implement
+    std::ostringstream out;
+    std::string s;
+    out << "%" << I;
+    s = out.str();
+    Store_field(inst,0,caml_copy_string(s.c_str()));
+    Store_field(inst,1,mkOpcode(I)); 
     Store_field(inst,2,convert(I->getType()));
     Store_field(inst,3,convert(cast<User>(I->getOperand(0)))); 
     Store_field(inst,4,convert(cast<User>(I->getOperand(1))));
@@ -212,6 +222,16 @@ namespace {
     return inst;
   }
 
+  value mkAlignment(unsigned al) {
+    value alignment;
+    if (al == 0) alignment = Val_int(0);
+    else { 
+      alignment = caml_alloc(1,0);
+      Store_field(alignment,0,caml_copy_int32(al));
+    }
+    return alignment;
+  } 
+
   value convert(const Instruction *I) {
     errs() << "Instruction: " << *I << "\n";
     value inst = Val_int(0);
@@ -222,6 +242,17 @@ namespace {
       inst = mkBinInstruction(I);
     if (op >= 26 && op <= 29)
       inst = mkMemInstruction(op);
+    if (isa<LoadInst>(I)) {
+      inst = caml_alloc(5,9);
+      Store_field(inst,0,caml_copy_string("dst"));
+      value vol = cast<LoadInst>(I)->isVolatile()? Val_int(1):Val_int(0);
+      Store_field(inst,1,vol);
+      Store_field(inst,2,convert(I->getType()));
+      const User* u = cast<User>(cast<LoadInst>(I)->getPointerOperand());
+      Store_field(inst,3,convert(u));
+      unsigned al = cast<LoadInst>(I)->getAlignment();
+      Store_field(inst,4,mkAlignment(al));
+    }
 
     return inst;
   }
