@@ -4,6 +4,7 @@
 #include "llvm/Constants.h"
 #include "llvm/Type.h"
 #include "llvm/DerivedTypes.h"
+#include "llvm/InstrTypes.h"
 
 #include <map>
 #include <sstream>
@@ -134,15 +135,68 @@ namespace {
     return user;
     
   }
+ 
+  int translateOpcode(int opcode) {
+    switch (opcode) {
+    case Instruction::Add: return 0;
+    case Instruction::FAdd: return 0;
+    case Instruction::Sub: return 1;
+    case Instruction::FSub: return 1;
+    case Instruction::Mul: return 2;
+    case Instruction::FMul: return 2;
+    case Instruction::UDiv: return 3;
+    case Instruction::SDiv: return 4;
+    case Instruction::FDiv: return 3;
+    case Instruction::URem: return 4;
+    case Instruction::SRem: return 5;
+    case Instruction::FRem: return 6;
+    case Instruction::Shl: return 5;
+    case Instruction::LShr: return 6;
+    case Instruction::AShr: return 7;
+    case Instruction::And: return 7;
+    case Instruction::Or: return 8;
+    case Instruction::Xor: return 9;
+    default: return 3000;
+    }
+  }
+
+  value mkOpcode(const Instruction *I) {
+    value op;
+    bool b;
+    switch (I->getOpcode()) {
+    case Instruction::Add: 
+    case Instruction::Sub:
+    case Instruction::Mul:
+    case Instruction::Shl:
+      op = caml_alloc(1,translateOpcode(I->getOpcode()));
+      Store_field(op,0,Val_int(0)); // Implement the wrapping possibilities
+      return op;
+    case Instruction::UDiv:
+    case Instruction::SDiv:
+    case Instruction::LShr:
+    case Instruction::AShr:
+      op = caml_alloc(1,translateOpcode(I->getOpcode()));
+      b = false;
+      if (cast<BinaryOperator>(I)->isExact()) b = true;
+      Store_field(op,0,b);
+      return op;
+    default: 
+      return (Val_int(translateOpcode(I->getOpcode())));
+    }
+  }
+
+
 
   // My Use of User may be awckward it's that a user can be an instruction
   // or a constant but rather that instruction and constant really inherit stuff
   // from User (as opposed to type or constant that are interfaces for instance)
   value mkBinInstruction(const Instruction *I) {
-    value inst = caml_alloc(3,7);
-    Store_field(inst,0,Val_int(I->getOpcode() - 8)); // WATCH OUT
-    Store_field(inst,1,convert(cast<User>(I->getOperand(0)))); 
-    Store_field(inst,2,convert(cast<User>(I->getOperand(1))));
+    value inst = caml_alloc(5,7);
+    Store_field(inst,0,caml_copy_string("dst"));
+    Store_field(inst,1,mkOpcode(I)); // To Implement
+    Store_field(inst,2,convert(I->getType()));
+    Store_field(inst,3,convert(cast<User>(I->getOperand(0)))); 
+    Store_field(inst,4,convert(cast<User>(I->getOperand(1))));
     return inst;
   }
 

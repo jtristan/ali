@@ -17,11 +17,19 @@ type typ =
   | PointerT of typ
   | VectorT of typ
 
+type wrap =
+  | Wnone
+  | Wnsw
+  | Wnuw
+  | Wboth
+
+type exact = bool
+
 type bop = 
-  | Add | FAdd | Sub | FSub
-  | Mul | FMul | UDiv | SDiv | FDiv
+  | Add of wrap | FAdd | Sub of wrap | FSub
+  | Mul of wrap | FMul | UDiv of exact | SDiv of exact | FDiv
   | URem | SRem | FRem
-  | Shl | LShr | AShr | And | Or | Xor
+  | Shl of wrap | LShr of exact | AShr of exact | And | Or | Xor
       
 type icmpOp = 
   | EQ | NE
@@ -50,21 +58,27 @@ type constant =
   | Blockaddress of string * string
   | NYI
 
+type var = string
+
 type operand = 
   | Const of constant
-  | Var of string
+  | Var of var
+
+type alignment = int32
+
+type volatile = bool
 
 type instruction = 
-  | Ret of string 
-  | Br of string
+  | Ret of typ * operand
+  | Br of operand * operand * operand
   | Switch of string
   | IndirectBr of string
   | Invoke of string
   | Unwind of string
   | Unreachable of string
-  | BinOp of bop * operand * operand
-  | Alloca of string
-  | Load of string
+  | BinOp of var * bop * typ * operand * operand
+  | Alloca of var * typ * (typ * int32) option * alignment option
+  | Load of var * volatile * typ * operand * alignment option  
   | Store of string
   | GetElelemtPtr of string
   | CastOp of string
@@ -83,7 +97,7 @@ type program = {name: string; args: arg list; body: code}
 type transform = program -> program
 
 let rec print_type oc t = 
-  let f = fun s -> Printf.fprintf oc " %s " s in 
+  let f = fun s -> Printf.fprintf oc "%s" s in 
   match t with
     | Void -> f "void"
     | Float -> f "float"
@@ -94,7 +108,7 @@ let rec print_type oc t =
     | X86_MMX -> f "x86_mmx"
     | Label -> f "label"
     | Metadata -> f "Metadata"
-    | IntT width -> f ("int"^Int32.to_string width) 
+    | IntT width -> f ("i"^Int32.to_string width) 
     | ArrayT t -> Printf.fprintf oc "[%a]" print_type t
     | PointerT t -> Printf.fprintf oc "%a*" print_type t
     | VectorT t -> Printf.fprintf oc "<%a>" print_type t
@@ -102,35 +116,35 @@ let rec print_type oc t =
   
 let print_constant oc c = 
   match c with
-    | I i -> Printf.fprintf oc " %s " (Int64.to_string i)
+    | I i -> Printf.fprintf oc "%s " (Int64.to_string i)
     | _ -> Printf.fprintf oc "NYI"
 
 let print_operand oc o = 
   match o with
-    | Const c ->  Printf.fprintf oc " %a " print_constant c ; flush stdout
-    | Var v ->  Printf.fprintf oc " %s " v
+    | Const c ->  Printf.fprintf oc "%a" print_constant c ; flush stdout
+    | Var v ->  Printf.fprintf oc "%s" v
 
 let print_bop oc b = 
   let s = 
     match b with 
-      | Add -> " + "
-      | FAdd -> " + "
-      | Sub -> " - "
-      | FSub -> " - "
-      | Mul -> " * "
-      | FMul -> " * "
-      | UDiv -> " / "
-      | SDiv -> " / "
-      | FDiv -> " / "
-      | URem ->  " % "
-      | SRem -> " % "
-      | FRem -> " % "
-      | Shl -> " << "
-      | LShr -> " >> "
-      | AShr -> " >> "
-      | And -> " & "
-      | Or -> " | "
-      | Xor -> " ^ "
+      | Add _ -> "add"
+      | FAdd -> "fadd"
+      | Sub _ -> "sub"
+      | FSub -> "fsub"
+      | Mul _ -> "mul"
+      | FMul -> "fmul"
+      | UDiv _ -> "udiv"
+      | SDiv _ -> "sdiv"
+      | FDiv -> "fdiv"
+      | URem ->  "urem"
+      | SRem -> "srem"
+      | FRem -> "frem"
+      | Shl _ -> "shl"
+      | LShr _ -> "lshr"
+      | AShr _ -> "ashr"
+      | And -> "and"
+      | Or -> "or"
+      | Xor -> "xor"
   in
   Printf.fprintf oc "%s" s; flush stdout
 ;;
@@ -144,7 +158,7 @@ let print_instruction oc i =
     | Invoke _ -> Printf.fprintf oc "Invoke"
     | Unwind _ -> Printf.fprintf oc "Unwind"
     | Unreachable _ -> Printf.fprintf oc "Unreachable"
-    | BinOp (o,e1,e2) -> Printf.fprintf oc "%a %a %a" print_bop o print_operand e1 print_operand e2
+    | BinOp (dst,o,t,e1,e2) -> Printf.fprintf oc "%s = %a %a %a, %a" dst print_bop o print_type t print_operand e1 print_operand e2
     | Alloca _ -> Printf.fprintf oc "Alloca"
     | Load _ -> Printf.fprintf oc "Load"
     | Store _ -> Printf.fprintf oc "Store"
