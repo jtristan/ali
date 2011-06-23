@@ -83,7 +83,7 @@ type instruction =
   | BinOp of var * bop * typ * operand * operand
   | Alloca of var * typ * (typ * int32) option * alignment option
   | Load of var * volatile * typ * operand * alignment option  
-  | Store of string
+  | Store of volatile * typ * operand * typ * operand * alignment option
   | GetElelemtPtr of string
   | CastOp of string
   | Icmp of icmpOp 
@@ -101,7 +101,7 @@ type program = {name: string; args: arg list; body: code}
 type transform = program -> program
 
 let rec print_type oc t = 
-  let f = fun s -> Printf.fprintf oc "%s" s in 
+  let f = fun s -> Printf.fprintf oc "%s" s; flush stdout in 
   match t with
     | Void -> f "void"
     | Float -> f "float"
@@ -120,13 +120,14 @@ let rec print_type oc t =
   
 let print_constant oc c = 
   match c with
-    | I i -> Printf.fprintf oc "%s " (Int64.to_string i)
-    | _ -> Printf.fprintf oc "NYI"
+    | I i -> Printf.printf "constant"; flush stdout; Printf.fprintf oc "%s " (Int64.to_string i)
+    | _ -> Printf.fprintf oc "NYI"; flush stdout
 
 let print_operand oc o = 
+  Printf.printf "Hi"; flush stdout; 
   match o with
-    | Const c ->  Printf.fprintf oc "%a" print_constant c ; flush stdout
-    | Var v ->  Printf.fprintf oc "%s" v
+    | Const c ->  Printf.fprintf oc "%a" print_constant c ; Printf.printf "there"; flush stdout
+    | Var v ->  Printf.fprintf oc "%s" v; Printf.printf "there";flush stdout
 
 let string_wrap w = 
   match w with
@@ -167,7 +168,7 @@ let print_align oc a =
     | None -> Printf.fprintf oc ""
     | Some a -> Printf.fprintf oc ", align %s" (Int32.to_string a)
 
-let string_volatile v = if v then "volatile" else ""
+let string_volatile v = if v then "volatile " else ""
 
 let print_instruction oc i =
   match i with
@@ -179,9 +180,9 @@ let print_instruction oc i =
     | Unwind _ -> Printf.fprintf oc "Unwind"
     | Unreachable _ -> Printf.fprintf oc "Unreachable"
     | BinOp (dst,o,t,e1,e2) -> Printf.fprintf oc "%s = %a %a %a, %a" dst print_bop o print_type t print_operand e1 print_operand e2
-    | Alloca _ -> Printf.fprintf oc "Alloca"
-    | Load (dst,vol,t,o,al) -> Printf.fprintf oc "%s = %s load %a %a %a" dst (string_volatile vol) print_type t print_operand o print_align al
-    | Store _ -> Printf.fprintf oc "Store"
+    | Alloca (dst,t,_,al) -> Printf.fprintf oc "%s = alloca %a %a" dst print_type t print_align al
+    | Load (dst,vol,t,o,al) -> Printf.fprintf oc "%s = %sload %a %a %a" dst (string_volatile vol) print_type t print_operand o print_align al
+    | Store (vol,t1,e1,t2,e2,al) -> Printf.fprintf oc "%sstore %a %a, %a %a %a" (string_volatile vol) print_type t1 print_operand e1 print_type t2 print_operand e2 print_align al; Printf.printf "Finished"; flush stdout
     | GetElelemtPtr _ -> Printf.fprintf oc "GetElementPtr"
     | _ -> Printf.fprintf oc "Instruction NYI\n"
 ;;

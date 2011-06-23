@@ -114,22 +114,22 @@ namespace {
   }
   
   // Is it really User? What is the Op inheriting from User?
-  value convert(const User *U) {
+  value convert(const Value *V) {
     errs() << "Converting User\n";
     value user = Val_int(0);
     // Get the variable correspong to the instruction
-    if (isa<Instruction>(U)) {
+    if (isa<Instruction>(V)) {
       user = caml_alloc(1,1);
       std::string var;
       std::ostringstream out;
-      out << "%" << U;
+      out << "%" << V;
       var = out.str();
       Store_field(user,0,caml_copy_string(var.c_str()));
     }      
     // convert the constant
-    if (isa<Constant>(U)) {
+    if (isa<Constant>(V)) {
       user = caml_alloc(1,0);
-      Store_field(user,0,convert(cast<Constant>(U)));
+      Store_field(user,0,convert(cast<Constant>(V)));
     }
     // Shoud there be a 3rd case for Operator???
 
@@ -205,8 +205,8 @@ namespace {
     Store_field(inst,0,caml_copy_string(s.c_str()));
     Store_field(inst,1,mkOpcode(I)); 
     Store_field(inst,2,convert(I->getType()));
-    Store_field(inst,3,convert(cast<User>(I->getOperand(0)))); 
-    Store_field(inst,4,convert(cast<User>(I->getOperand(1))));
+    Store_field(inst,3,convert(I->getOperand(0))); 
+    Store_field(inst,4,convert(I->getOperand(1)));
     return inst;
   }
 
@@ -223,6 +223,7 @@ namespace {
   }
 
   value mkAlignment(unsigned al) {
+    errs() << "Alignment is " << al << "\n";
     value alignment;
     if (al == 0) alignment = Val_int(0);
     else { 
@@ -248,10 +249,29 @@ namespace {
       value vol = cast<LoadInst>(I)->isVolatile()? Val_int(1):Val_int(0);
       Store_field(inst,1,vol);
       Store_field(inst,2,convert(I->getType()));
-      const User* u = cast<User>(cast<LoadInst>(I)->getPointerOperand());
+      const Value* u = cast<LoadInst>(I)->getPointerOperand();
       Store_field(inst,3,convert(u));
       unsigned al = cast<LoadInst>(I)->getAlignment();
       Store_field(inst,4,mkAlignment(al));
+    }
+    if (isa<AllocaInst>(I)) {
+      inst = caml_alloc(4,8);
+      Store_field(inst,0,caml_copy_string("dst"));
+      value t = convert(cast<AllocaInst>(I)->getAllocatedType());
+      Store_field(inst,1,t);
+      Store_field(inst,2,Val_int(0));
+      unsigned al = cast<AllocaInst>(I)->getAlignment();
+      Store_field(inst,3,mkAlignment(al));
+    }
+    if (isa<StoreInst>(I)) {
+      inst = caml_alloc(6,10);
+      const StoreInst *S = cast<StoreInst>(I);
+      Store_field(inst,0,S->isVolatile()? Val_int(1):Val_int(0));
+      Store_field(inst,1,convert(S->getValueOperand()->getType()));
+      Store_field(inst,2,convert(S->getValueOperand()));
+      Store_field(inst,3,convert(S->getPointerOperand()->getType()));
+      Store_field(inst,4,convert(S->getPointerOperand()));
+      Store_field(inst,5,mkAlignment(S->getAlignment()));
     }
 
     return inst;
