@@ -73,7 +73,7 @@ type alignment = int32
 type volatile = bool
 
 type instruction = 
-  | Ret of typ * operand
+  | Ret of (typ * operand) option
   | Br of operand * operand * operand
   | Switch of string
   | IndirectBr of string
@@ -120,14 +120,13 @@ let rec print_type oc t =
   
 let print_constant oc c = 
   match c with
-    | I i -> Printf.printf "constant"; flush stdout; Printf.fprintf oc "%s " (Int64.to_string i)
-    | _ -> Printf.fprintf oc "NYI"; flush stdout
+    | I i -> Printf.fprintf oc "%s " (Int64.to_string i)
+    | _ -> Printf.fprintf oc "NYI"
 
 let print_operand oc o = 
-  Printf.printf "Hi"; flush stdout; 
   match o with
-    | Const c ->  Printf.fprintf oc "%a" print_constant c ; Printf.printf "there"; flush stdout
-    | Var v ->  Printf.fprintf oc "%s" v; Printf.printf "there";flush stdout
+    | Const c ->  Printf.fprintf oc "%a" print_constant c 
+    | Var v ->  Printf.fprintf oc "%s" v
 
 let string_wrap w = 
   match w with
@@ -170,9 +169,15 @@ let print_align oc a =
 
 let string_volatile v = if v then "volatile " else ""
 
+let print_ret oc r =
+  Printf.fprintf oc "Ret"; flush stdout;
+  match r with
+    | None -> ()
+    | Some (t,e) -> Printf.fprintf oc " %a %a" print_type t print_operand e
+
 let print_instruction oc i =
   match i with
-    | Ret _ -> Printf.fprintf oc "Ret"
+    | Ret r -> print_ret oc r
     | Br _ -> Printf.fprintf oc "Br"
     | Switch _ -> Printf.fprintf oc "Switch"
     | IndirectBr _ -> Printf.fprintf oc "IndirectBr"
@@ -182,7 +187,7 @@ let print_instruction oc i =
     | BinOp (dst,o,t,e1,e2) -> Printf.fprintf oc "%s = %a %a %a, %a" dst print_bop o print_type t print_operand e1 print_operand e2
     | Alloca (dst,t,_,al) -> Printf.fprintf oc "%s = alloca %a %a" dst print_type t print_align al
     | Load (dst,vol,t,o,al) -> Printf.fprintf oc "%s = %sload %a %a %a" dst (string_volatile vol) print_type t print_operand o print_align al
-    | Store (vol,t1,e1,t2,e2,al) -> Printf.fprintf oc "%sstore %a %a, %a %a %a" (string_volatile vol) print_type t1 print_operand e1 print_type t2 print_operand e2 print_align al; Printf.printf "Finished"; flush stdout
+    | Store (vol,t1,e1,t2,e2,al) -> Printf.fprintf oc "%sstore %a %a, %a %a %a" (string_volatile vol) print_type t1 print_operand e1 print_type t2 print_operand e2 print_align al
     | GetElelemtPtr _ -> Printf.fprintf oc "GetElementPtr"
     | _ -> Printf.fprintf oc "Instruction NYI\n"
 ;;

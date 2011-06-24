@@ -94,6 +94,16 @@ namespace {
     return typ;
   }
 
+  value convert(const Argument *A) {
+    errs() << "converting argument\n";
+    const Type *t = A->getType();
+    value s = caml_copy_string((A->getNameStr()).c_str());
+    value arg = caml_alloc(2,0);
+    // First name, Second type
+    Store_field(arg,0,s);
+    Store_field(arg,1,convert(t)); 
+    return arg;
+  }
 
   value convert(const Constant *C) {
     errs() << "Converting Constant\n";
@@ -113,7 +123,6 @@ namespace {
     return constant;
   }
   
-  // Is it really User? What is the Op inheriting from User?
   value convert(const Value *V) {
     errs() << "Converting User\n";
     value user = Val_int(0);
@@ -131,12 +140,33 @@ namespace {
       user = caml_alloc(1,0);
       Store_field(user,0,convert(cast<Constant>(V)));
     }
-    // Shoud there be a 3rd case for Operator???
+    // Treament of operands that are function arguments
+    if (isa<Argument>(V)) {
+      user = caml_alloc(1,1);
+      std::string s = cast<Argument>(V)->getNameStr();
+      Store_field(user,0,caml_copy_string(s.c_str()));
+    }
+    
 
     return user;
     
   }
  
+  // ConvertOption builds an OCaml option with the type and content of the value
+  value convertOption(const Value *V) {
+    value op;
+    if (V == NULL) 
+      op = Val_int(0);
+    else {
+      op = caml_alloc(1,0);
+      value tuple = caml_alloc(2,0);
+      Store_field(tuple,0,convert(V->getType()));
+      Store_field(tuple,1,convert(V));
+      Store_field(op,0,tuple);
+    }
+    return op;
+  }
+  
   int translateOpcode(int opcode) {
     switch (opcode) {
     case Instruction::Add: return 0;
@@ -210,12 +240,6 @@ namespace {
     return inst;
   }
 
-  value mkTermInstruction(int i) {
-    value inst = caml_alloc(1,i-1); // WATCH OUT
-    Store_field(inst,0,Val_int(0)); // DUMMY, WILL NEED REFINEMENT
-    return inst;
-  }
-
   value mkMemInstruction(int i) {
     value inst = caml_alloc(1,i-18); //WATCH OUT
     Store_field(inst,0,Val_int(0));
@@ -237,31 +261,26 @@ namespace {
     errs() << "Instruction: " << *I << "\n";
     value inst = Val_int(0);
     int op = I->getOpcode();
-    if (I->isTerminator())
-      inst = mkTermInstruction(op);
     if (I->isBinaryOp()) 
       inst = mkBinInstruction(I);
     if (op >= 26 && op <= 29)
       inst = mkMemInstruction(op);
     if (isa<LoadInst>(I)) {
       inst = caml_alloc(5,9);
+      const LoadInst *L = cast<LoadInst>(I);
       Store_field(inst,0,caml_copy_string("dst"));
-      value vol = cast<LoadInst>(I)->isVolatile()? Val_int(1):Val_int(0);
-      Store_field(inst,1,vol);
+      Store_field(inst,1,L->isVolatile()? Val_int(1):Val_int(0));
       Store_field(inst,2,convert(I->getType()));
-      const Value* u = cast<LoadInst>(I)->getPointerOperand();
-      Store_field(inst,3,convert(u));
-      unsigned al = cast<LoadInst>(I)->getAlignment();
-      Store_field(inst,4,mkAlignment(al));
+      Store_field(inst,3,convert(L->getPointerOperand()));
+      Store_field(inst,4,mkAlignment(L->getAlignment()));
     }
     if (isa<AllocaInst>(I)) {
       inst = caml_alloc(4,8);
+      const AllocaInst *A = cast<AllocaInst>(I);
       Store_field(inst,0,caml_copy_string("dst"));
-      value t = convert(cast<AllocaInst>(I)->getAllocatedType());
-      Store_field(inst,1,t);
-      Store_field(inst,2,Val_int(0));
-      unsigned al = cast<AllocaInst>(I)->getAlignment();
-      Store_field(inst,3,mkAlignment(al));
+      Store_field(inst,1,convert(A->getAllocatedType()));
+      Store_field(inst,2,convertOption(A->getArraySize())); 
+      Store_field(inst,3,mkAlignment(A->getAlignment()));
     }
     if (isa<StoreInst>(I)) {
       inst = caml_alloc(6,10);
@@ -272,6 +291,11 @@ namespace {
       Store_field(inst,3,convert(S->getPointerOperand()->getType()));
       Store_field(inst,4,convert(S->getPointerOperand()));
       Store_field(inst,5,mkAlignment(S->getAlignment()));
+    }
+    if (isa<ReturnInst>(I)) {
+      const ReturnInst *R = cast<ReturnInst>(I);
+      inst = caml_alloc(1,0);
+      Store_field(inst,0,convertOption(R->getReturnValue()));
     }
 
     return inst;
@@ -284,17 +308,6 @@ namespace {
     value l = convertList<Instruction,BasicBlock::const_iterator>(&B->getInstList());
     Store_field(block,1,l);
     return block;
-  }
-
-  value convert(const Argument *A) {
-    errs() << "converting argument\n";
-    const Type *t = A->getType();
-    value s = caml_copy_string((A->getNameStr()).c_str());
-    value arg = caml_alloc(2,0);
-    // First name, Second type
-    Store_field(arg,0,s);
-    Store_field(arg,1,convert(t)); 
-    return arg;
   }
 
   value convert (const Function *F) {
