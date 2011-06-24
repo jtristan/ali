@@ -44,6 +44,20 @@ type fcmpOp =
   | Oeq | Ogt | Oge | Olt | Ole | One | ORD
   | Ueq | Ugt | Uge | Ult | Ule | Une | Uno
   
+type castop =
+  | Trunc 
+  | Zext
+  | Sect
+  | FpTrunc
+  | fpExt
+  | FpToUi
+  | FpToSi
+  | UiToFp
+  | SiToFp
+  | PtrToInt
+  | IntToPtr
+  | BitCast
+
 (* Missing constant expressions *)
 type constant =
   | True
@@ -105,6 +119,8 @@ type fattributes =
   | Ssp
   | Sspreq
 
+type intrinsic
+
 type instruction = 
   | Ret of (typ * operand) option
   | Br of operand * operand * operand
@@ -118,13 +134,19 @@ type instruction =
   | Load of var * volatile * typ * operand * alignment option  
   | Store of volatile * typ * operand * typ * operand * alignment option
   | GetElelemtPtr of string
-  | CastOp of string
-  | Icmp of icmpOp 
-  | Fcmp of fcmpOp
-  | Phi of string
-  | Call of string
+  | CastOp of castop * typ * operand * typ
+  | Icmp of icmpOp * typ * operand * operand 
+  | Fcmp of fcmpOp * typ * operand * operand
+  | Phi of typ * operand list
   | Select of string
-  | NYI
+  | ExtractElement of string
+  | InsertElement of string
+  | ShuffleVector of string
+  | ExtractValue of string
+  | InsertValue of string
+  | Call of string
+  | Va_arg of string
+  | Intrinsic of intrinsic
    
 type basicBlock = {label: string; instrs: instruction list}
 type code = basicBlock list
