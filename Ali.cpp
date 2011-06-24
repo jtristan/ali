@@ -5,10 +5,11 @@
 #include "llvm/Type.h"
 #include "llvm/DerivedTypes.h"
 #include "llvm/InstrTypes.h"
-#include <llvm/Instructions.h>
+#include "llvm/Instructions.h"
 
 #include <map>
 #include <sstream>
+#include <exception>
 
 extern "C"{
 #include </usr/local/lib/ocaml/caml/mlvalues.h>
@@ -33,6 +34,12 @@ namespace {
     
   };
 
+  typedef std::map<Instruction*,unsigned> naming;
+
+  unsigned count = 0;
+  naming m;
+  
+
   template <class T, class IT> value convertList(const iplist<T> *L) {
     errs() << "Converting list\n";
     value l = Val_int(0);
@@ -50,6 +57,8 @@ namespace {
     return l;
   }  
 
+
+  // conversion of types
   value convert(const Type *T) {
     errs() << "Converting types\n";
     value typ = Val_int(0);
@@ -107,19 +116,27 @@ namespace {
 
   value convert(const Constant *C) {
     errs() << "Converting Constant\n";
-    value constant = Val_int(0);
+    value constant;
 
+    if (isa<ConstantPointerNull>(C)) constant = Val_int(2);
     if (isa<ConstantInt>(C)) {
-      constant = caml_alloc(1,0);
-      value v = caml_copy_int64(cast<ConstantInt>(C)->getSExtValue());
-      Store_field(constant,0,v);
+      const ConstantInt *CI = cast<ConstantInt>(C);
+      if (CI->getBitWidth() == 1) {
+	if (CI->isZero()) constant = Val_int(1);
+	else constant = Val_int(0);
+      }
+      else {
+	constant = caml_alloc(1,0);
+	value v = caml_copy_int64(CI->getSExtValue());
+	Store_field(constant,0,v);
+      }
     }
-    else if (isa<ConstantFP>(C)) {
-      constant = Val_int(1);
+    if (isa<ConstantAggregateZero>(C)) constant = Val_int(3);
+    if (isa<UndefValue>(C)) constant = Val_int(4);
+    if (isa<ConstantFP>(C)) {
+      errs() << "Floating Point Constants NYI\n";
     }
-    else {
-      constant = Val_int(5);
-    }
+    
     return constant;
   }
   
@@ -240,12 +257,6 @@ namespace {
     return inst;
   }
 
-  value mkMemInstruction(int i) {
-    value inst = caml_alloc(1,i-18); //WATCH OUT
-    Store_field(inst,0,Val_int(0));
-    return inst;
-  }
-
   value mkAlignment(unsigned al) {
     errs() << "Alignment is " << al << "\n";
     value alignment;
@@ -257,16 +268,49 @@ namespace {
     return alignment;
   } 
 
+  value convert(CallingConv::ID x) {
+    return Val_int(x);
+  }
+
+  value convert(Attributes x) {
+    value attr;
+    switch (x) {
+      // Param attributes
+    case Attribute::ZExt: attr = Val_int(0);
+    case Attribute::SExt: attr = Val_int(1);
+    case Attribute::InReg: attr = Val_int(2);
+    case Attribute::ByVal: attr = Val_int(3);
+    case Attribute::StructRet: attr = Val_int(4);
+    case Attribute::NoAlias: attr = Val_int(5);
+    case Attribute::NoCapture: attr = Val_int(6);
+    case Attribute::Nest: attr = Val_int(7);
+      // Function attributes
+    case Attribute::AlwaysInline: attr = Val_int(0);
+    case Attribute::Hotpatch: attr = Val_int(1);
+      // There should be an attribute nonlazybond but I can't find it
+    case Attribute::InlineHint: attr = Val_int(3);
+    case Attribute::Naked: attr = Val_int(4);
+    case Attribute::NoImplicitFloat: attr = Val_int(5);
+    case Attribute::NoInline: attr = Val_int(6);
+    case Attribute::NoRedZone: attr = Val_int(7);
+    case Attribute::NoReturn: attr = Val_int(8);
+    case Attribute::NoUnwind: attr = Val_int(9);
+    case Attribute::OptimizeForSize: attr = Val_int(10);
+    case Attribute::ReadNone: attr = Val_int(11);
+    case Attribute::ReadOnly: attr = Val_int(12);
+    case Attribute::StackProtect: attr = Val_int(13);
+    case Attribute::StackProtectReq: attr = Val_int(14);
+    }
+    return attr;
+  }
+
   value convert(const Instruction *I) {
     errs() << "Instruction: " << *I << "\n";
     value inst = Val_int(0);
-    int op = I->getOpcode();
     if (I->isBinaryOp()) 
       inst = mkBinInstruction(I);
-    if (op >= 26 && op <= 29)
-      inst = mkMemInstruction(op);
     if (isa<LoadInst>(I)) {
-      inst = caml_alloc(5,9);
+      inst = caml_alloc(5,7);
       const LoadInst *L = cast<LoadInst>(I);
       Store_field(inst,0,caml_copy_string("dst"));
       Store_field(inst,1,L->isVolatile()? Val_int(1):Val_int(0));
@@ -275,7 +319,7 @@ namespace {
       Store_field(inst,4,mkAlignment(L->getAlignment()));
     }
     if (isa<AllocaInst>(I)) {
-      inst = caml_alloc(4,8);
+      inst = caml_alloc(4,6);
       const AllocaInst *A = cast<AllocaInst>(I);
       Store_field(inst,0,caml_copy_string("dst"));
       Store_field(inst,1,convert(A->getAllocatedType()));
@@ -283,7 +327,7 @@ namespace {
       Store_field(inst,3,mkAlignment(A->getAlignment()));
     }
     if (isa<StoreInst>(I)) {
-      inst = caml_alloc(6,10);
+      inst = caml_alloc(6,8);
       const StoreInst *S = cast<StoreInst>(I);
       Store_field(inst,0,S->isVolatile()? Val_int(1):Val_int(0));
       Store_field(inst,1,convert(S->getValueOperand()->getType()));

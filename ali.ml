@@ -72,14 +72,47 @@ type alignment = int32
 
 type volatile = bool
 
+type calling_convention =
+  | C
+  | Fast
+  | Cold
+
+type attribute = 
+  | Zeroext
+  | Signext
+  | Inreg
+  | Byval
+  | Sret
+  | Noalias
+  | Nocapture
+  | Nest
+
+type fattributes =    
+  | Alignstack of int32
+  | Alwaysinline
+  | Hotpatch
+  | Nonlazybind
+  | Inlinehint
+  | Naked
+  | Noimplicitfloat
+  | Noinline
+  | Noredzone
+  | Noreturn
+  | Nounwind
+  | Optsize
+  | Readnone
+  | Readonly
+  | Ssp
+  | Sspreq
+
 type instruction = 
   | Ret of (typ * operand) option
   | Br of operand * operand * operand
-  | Switch of string
-  | IndirectBr of string
-  | Invoke of string
-  | Unwind of string
-  | Unreachable of string
+  | Switch of typ * operand * operand * (typ * operand * operand) list
+  | IndirectBr of typ * operand * operand list
+  | Invoke of calling_convention * attribute * typ * operand * (typ * operand) list * fattribute * operand * operand
+  | Unwind
+  | Unreachable
   | BinOp of var * bop * typ * operand * operand
   | Alloca of var * typ * (typ * int32) option * alignment option
   | Load of var * volatile * typ * operand * alignment option  
