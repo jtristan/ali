@@ -121,29 +121,33 @@ type fattributes =
 
 type intrinsic
 
+type index = int32
+
 type instruction = 
   | Ret of (typ * operand) option
   | Br of operand * operand * operand
   | Switch of typ * operand * operand * (typ * operand * operand) list
   | IndirectBr of typ * operand * operand list
-  | Invoke of calling_convention * attribute * typ * operand * (typ * operand) list * fattribute * operand * operand
+  | Invoke of var * calling_convention * attribute * typ * operand * (typ * operand) list * fattribute * operand * operand
   | Unwind
   | Unreachable
   | BinOp of var * bop * typ * operand * operand
   | Alloca of var * typ * (typ * int32) option * alignment option
   | Load of var * volatile * typ * operand * alignment option  
   | Store of volatile * typ * operand * typ * operand * alignment option
+      (* TODO *)
   | GetElelemtPtr of string
-  | CastOp of castop * typ * operand * typ
-  | Icmp of icmpOp * typ * operand * operand 
-  | Fcmp of fcmpOp * typ * operand * operand
-  | Phi of typ * operand list
-  | Select of string
-  | ExtractElement of string
-  | InsertElement of string
-  | ShuffleVector of string
-  | ExtractValue of string
-  | InsertValue of string
+  | CastOp of var * castop * typ * operand * typ
+  | Icmp of var * icmpOp * typ * operand * operand 
+  | Fcmp of var * fcmpOp * typ * operand * operand
+  | Phi of var * typ * operand list
+  | Select of var * typ * operand * typ * operand * typ * operand
+  | ExtractElement of var * typ * operand * index
+  | InsertElement of var * typ * operand * typ * operand * index
+  | ShuffleVector of var * typ * operand * typ * operand * typ * operand
+  | ExtractValue of var * typ * operand * index * index list
+  | InsertValue of var * typ * operand * typ * operand * index * index list
+      (* TODO *)
   | Call of string
   | Va_arg of string
   | Intrinsic of intrinsic
