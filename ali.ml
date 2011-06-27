@@ -49,7 +49,7 @@ type castop =
   | Zext
   | Sect
   | FpTrunc
-  | fpExt
+  | FpExt
   | FpToUi
   | FpToSi
   | UiToFp
@@ -101,7 +101,7 @@ type attribute =
   | Nocapture
   | Nest
 
-type fattributes =    
+type fattribute =    
   | Alignstack of int32
   | Alwaysinline
   | Hotpatch
@@ -132,7 +132,7 @@ type instruction =
   | Br of top option * label * label option
   | Switch of top * label * (top * label) list
   | IndirectBr of top * label list
-  | Invoke of var * calling_convention * attribute * top * (top) list * fattribute * label * label
+  | Invoke of var * calling_convention * attribute * top * top list * fattribute * label * label
   | Unwind
   | Unreachable
   | BinOp of var * bop * typ * top * top

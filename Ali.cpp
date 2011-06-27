@@ -173,7 +173,7 @@ namespace {
     value tuple = caml_alloc(2,0);
     Store_field(tuple,0,convert(V->getType()));
     Store_field(tuple,1,convert(V));
-    return op;
+    return tuple;
   }
 
   // ConvertOption builds an OCaml option with the type and content of the value
@@ -256,8 +256,8 @@ namespace {
     Store_field(inst,0,caml_copy_string(s.c_str()));
     Store_field(inst,1,mkOpcode(I)); 
     Store_field(inst,2,convert(I->getType()));
-    Store_field(inst,3,convert(mkTop(I->getOperand(0)))); 
-    Store_field(inst,4,convert(mkTop(I->getOperand(1))));
+    Store_field(inst,3,mkTop(I->getOperand(0))); 
+    Store_field(inst,4,mkTop(I->getOperand(1)));
     return inst;
   }
 
@@ -351,14 +351,17 @@ namespace {
     if (isa<BranchInst>(I)) {
       inst = caml_alloc(3,1);
       const BranchInst *I = cast<BranchInst>(I);
-      if (I->isConditionnal()) {
+      if (I->isConditional()) {
 	Store_field(inst,0,mkSome(mkTop(I->getCondition())));
-	Store_field(inst,1,I->getSuccessor(0));
-	Store_field(inst,2,mkSome(I->getSuccessor(1)));
+	std::string label1 = I->getSuccessor(0)->getNameStr();
+	Store_field(inst,1,caml_copy_string(label1.c_str()));
+	std::string label2 = I->getSuccessor(1)->getNameStr();
+	Store_field(inst,2,mkSome(caml_copy_string(label2.c_str())));
       }
       else {
 	Store_field(inst,0,Val_int(0));
-	Store_field(inst,1,S->getSuccessor(0));
+	std::string label = I->getSuccessor(0)->getNameStr();
+	Store_field(inst,1,caml_copy_string(label.c_str()));
 	Store_field(inst,2,Val_int(0));
       }
     }
