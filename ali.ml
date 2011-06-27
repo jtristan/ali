@@ -123,30 +123,34 @@ type intrinsic
 
 type index = int32
 
+type label = string
+
+type top = typ * operand
+
 type instruction = 
-  | Ret of (typ * operand) option
-  | Br of operand * operand * operand
-  | Switch of typ * operand * operand * (typ * operand * operand) list
-  | IndirectBr of typ * operand * operand list
-  | Invoke of var * calling_convention * attribute * typ * operand * (typ * operand) list * fattribute * operand * operand
+  | Ret of top option
+  | Br of top option * label * label option
+  | Switch of top * label * (top * label) list
+  | IndirectBr of top * label list
+  | Invoke of var * calling_convention * attribute * top * (top) list * fattribute * label * label
   | Unwind
   | Unreachable
-  | BinOp of var * bop * typ * operand * operand
+  | BinOp of var * bop * typ * top * top
   | Alloca of var * typ * (typ * int32) option * alignment option
-  | Load of var * volatile * typ * operand * alignment option  
-  | Store of volatile * typ * operand * typ * operand * alignment option
+  | Load of var * volatile * top * alignment option  
+  | Store of volatile * top * top * alignment option
       (* TODO *)
   | GetElelemtPtr of string
-  | CastOp of var * castop * typ * operand * typ
-  | Icmp of var * icmpOp * typ * operand * operand 
-  | Fcmp of var * fcmpOp * typ * operand * operand
-  | Phi of var * typ * operand list
-  | Select of var * typ * operand * typ * operand * typ * operand
-  | ExtractElement of var * typ * operand * index
-  | InsertElement of var * typ * operand * typ * operand * index
-  | ShuffleVector of var * typ * operand * typ * operand * typ * operand
-  | ExtractValue of var * typ * operand * index * index list
-  | InsertValue of var * typ * operand * typ * operand * index * index list
+  | CastOp of var * castop * top * typ
+  | Icmp of var * icmpOp * typ * top * top
+  | Fcmp of var * fcmpOp * typ * top * top
+  | Phi of var * typ * top list
+  | Select of var * typ * top * top * operand
+  | ExtractElement of var * top * index
+  | InsertElement of var * top * top * index
+  | ShuffleVector of var * top * top * top
+  | ExtractValue of var * top * index * index list
+  | InsertValue of var * top * top * index * index list
       (* TODO *)
   | Call of string
   | Va_arg of string
@@ -156,8 +160,8 @@ type basicBlock = {label: string; instrs: instruction list}
 type code = basicBlock list
 
 type arg = {nam: string; typ: typ}
-type program = {name: string; args: arg list; body: code}
-type transform = program -> program
+type func = {name: string; args: arg list; body: code}
+type transform = func -> func
 
 let rec print_type oc t = 
   let f = fun s -> Printf.fprintf oc "%s" s; flush stdout in 
@@ -234,6 +238,9 @@ let print_ret oc r =
     | None -> ()
     | Some (t,e) -> Printf.fprintf oc " %a %a" print_type t print_operand e
 
+let print_top oc t = 
+  Printf.fprintf oc " [%a: %a]" print_type (fst t) print_operand (snd t)
+
 let print_instruction oc i =
   match i with
     | Ret r -> print_ret oc r
@@ -243,10 +250,10 @@ let print_instruction oc i =
     | Invoke _ -> Printf.fprintf oc "Invoke"
     | Unwind _ -> Printf.fprintf oc "Unwind"
     | Unreachable _ -> Printf.fprintf oc "Unreachable"
-    | BinOp (dst,o,t,e1,e2) -> Printf.fprintf oc "%s = %a %a %a, %a" dst print_bop o print_type t print_operand e1 print_operand e2
+    | BinOp (dst,o,t,e1,e2) -> Printf.fprintf oc "%s = %a %a %a, %a" dst print_bop o print_type t print_top e1 print_top e2
     | Alloca (dst,t,_,al) -> Printf.fprintf oc "%s = alloca %a %a" dst print_type t print_align al
-    | Load (dst,vol,t,o,al) -> Printf.fprintf oc "%s = %sload %a %a %a" dst (string_volatile vol) print_type t print_operand o print_align al
-    | Store (vol,t1,e1,t2,e2,al) -> Printf.fprintf oc "%sstore %a %a, %a %a %a" (string_volatile vol) print_type t1 print_operand e1 print_type t2 print_operand e2 print_align al
+    | Load (dst,vol,o,al) -> Printf.fprintf oc "%s = %sload %a %a" dst (string_volatile vol) print_top o print_align al
+    | Store (vol,e1,e2,al) -> Printf.fprintf oc "%sstore %a, %a %a" (string_volatile vol) print_top e1 print_top e2 print_align al
     | GetElelemtPtr _ -> Printf.fprintf oc "GetElementPtr"
     | _ -> Printf.fprintf oc "Instruction NYI\n"
 ;;

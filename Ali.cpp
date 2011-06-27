@@ -169,6 +169,13 @@ namespace {
     
   }
  
+  value mkTop(const Value *V) {
+    value tuple = caml_alloc(2,0);
+    Store_field(tuple,0,convert(V->getType()));
+    Store_field(tuple,1,convert(V));
+    return op;
+  }
+
   // ConvertOption builds an OCaml option with the type and content of the value
   value convertOption(const Value *V) {
     value op;
@@ -176,10 +183,7 @@ namespace {
       op = Val_int(0);
     else {
       op = caml_alloc(1,0);
-      value tuple = caml_alloc(2,0);
-      Store_field(tuple,0,convert(V->getType()));
-      Store_field(tuple,1,convert(V));
-      Store_field(op,0,tuple);
+      Store_field(op,0,mkTop(V));
     }
     return op;
   }
@@ -252,8 +256,8 @@ namespace {
     Store_field(inst,0,caml_copy_string(s.c_str()));
     Store_field(inst,1,mkOpcode(I)); 
     Store_field(inst,2,convert(I->getType()));
-    Store_field(inst,3,convert(I->getOperand(0))); 
-    Store_field(inst,4,convert(I->getOperand(1)));
+    Store_field(inst,3,convert(mkTop(I->getOperand(0)))); 
+    Store_field(inst,4,convert(mkTop(I->getOperand(1))));
     return inst;
   }
 
@@ -304,19 +308,24 @@ namespace {
     return attr;
   }
 
+  value mkSome(value v) {
+    value op = caml_alloc(1,0);
+    Store_field(op,0,v);
+    return op;
+  }
+
   value convert(const Instruction *I) {
     errs() << "Instruction: " << *I << "\n";
     value inst = Val_int(0);
     if (I->isBinaryOp()) 
       inst = mkBinInstruction(I);
     if (isa<LoadInst>(I)) {
-      inst = caml_alloc(5,7);
+      inst = caml_alloc(4,7);
       const LoadInst *L = cast<LoadInst>(I);
       Store_field(inst,0,caml_copy_string("dst"));
       Store_field(inst,1,L->isVolatile()? Val_int(1):Val_int(0));
-      Store_field(inst,2,convert(I->getType()));
-      Store_field(inst,3,convert(L->getPointerOperand()));
-      Store_field(inst,4,mkAlignment(L->getAlignment()));
+      Store_field(inst,2,mkTop(L->getPointerOperand()));
+      Store_field(inst,3,mkAlignment(L->getAlignment()));
     }
     if (isa<AllocaInst>(I)) {
       inst = caml_alloc(4,6);
@@ -327,20 +336,66 @@ namespace {
       Store_field(inst,3,mkAlignment(A->getAlignment()));
     }
     if (isa<StoreInst>(I)) {
-      inst = caml_alloc(6,8);
+      inst = caml_alloc(4,8);
       const StoreInst *S = cast<StoreInst>(I);
       Store_field(inst,0,S->isVolatile()? Val_int(1):Val_int(0));
-      Store_field(inst,1,convert(S->getValueOperand()->getType()));
-      Store_field(inst,2,convert(S->getValueOperand()));
-      Store_field(inst,3,convert(S->getPointerOperand()->getType()));
-      Store_field(inst,4,convert(S->getPointerOperand()));
-      Store_field(inst,5,mkAlignment(S->getAlignment()));
+      Store_field(inst,1,mkTop(S->getValueOperand()));
+      Store_field(inst,2,mkTop(S->getPointerOperand()));
+      Store_field(inst,3,mkAlignment(S->getAlignment()));
     }
     if (isa<ReturnInst>(I)) {
       const ReturnInst *R = cast<ReturnInst>(I);
       inst = caml_alloc(1,0);
       Store_field(inst,0,convertOption(R->getReturnValue()));
     }
+    if (isa<BranchInst>(I)) {
+      inst = caml_alloc(3,1);
+      const BranchInst *I = cast<BranchInst>(I);
+      if (I->isConditionnal()) {
+	Store_field(inst,0,mkSome(mkTop(I->getCondition())));
+	Store_field(inst,1,I->getSuccessor(0));
+	Store_field(inst,2,mkSome(I->getSuccessor(1)));
+      }
+      else {
+	Store_field(inst,0,Val_int(0));
+	Store_field(inst,1,S->getSuccessor(0));
+	Store_field(inst,2,Val_int(0));
+      }
+    }
+//     if (isa<SwitchInst>(I)) {
+//       inst = caml_alloc(4,2);
+//       const SwitchInst *I = cast<SwitchInst>(I);
+//       Store_field(inst,0,convert(I->getCondition()->getType()));
+//       Store_field(inst,1,convert(I->getCondition()));
+//       Store_field(inst,2,);
+//       Store_field(inst,3,);
+//     } 
+//     if (isa<IndirectBrInst>(I)) {
+//       inst = caml_alloc(3,3);
+//       const IndirectBrInst *I = cast<IndirectBrInst>(I);
+//       Store_field(inst,0,);
+//       Store_field(inst,1,);
+//       Store_field(inst,2,);
+//     } 
+//     if (isa<InvokeInst>(I)) {
+//       inst = caml_alloc(8,4);
+//       const InvokeInst *I = cast<InvokeInst>(I);
+//       Store_field(inst,0,);
+//       Store_field(inst,1,);
+//       Store_field(inst,2,);
+//       Store_field(inst,3,);
+//       Store_field(inst,4,);
+//       Store_field(inst,5,);
+//       Store_field(inst,6,);
+//       Store_field(inst,7,);
+//     }
+//     if (isa<UnwindInst>(I)) {
+//       inst = Val_int(0);
+//     }
+//     if (isa<UnreachableInst>(I)) {
+//       inst = Val_int(1);
+//     }
+     
 
     return inst;
   }
