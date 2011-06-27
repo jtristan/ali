@@ -41,7 +41,6 @@ namespace {
   
 
   template <class T, class IT> value convertList(const iplist<T> *L) {
-    errs() << "Converting list\n";
     value l = Val_int(0);
     value tmp = Val_int(0);
     for (IT I = L->begin(), E = L->end(); I != E; ++I) {
@@ -60,7 +59,6 @@ namespace {
 
   // conversion of types
   value convert(const Type *T) {
-    errs() << "Converting types\n";
     value typ = Val_int(0);
     if (T->isPrimitiveType()) typ = Val_int(T->getTypeID());
     if (T->isIntegerTy()) {
@@ -104,7 +102,6 @@ namespace {
   }
 
   value convert(const Argument *A) {
-    errs() << "converting argument\n";
     const Type *t = A->getType();
     value s = caml_copy_string((A->getNameStr()).c_str());
     value arg = caml_alloc(2,0);
@@ -115,7 +112,6 @@ namespace {
   }
 
   value convert(const Constant *C) {
-    errs() << "Converting Constant\n";
     value constant;
 
     if (isa<ConstantPointerNull>(C)) constant = Val_int(2);
@@ -141,7 +137,6 @@ namespace {
   }
   
   value convert(const Value *V) {
-    errs() << "Converting User\n";
     value user = Val_int(0);
     // Get the variable correspong to the instruction
     if (isa<Instruction>(V)) {
@@ -248,7 +243,7 @@ namespace {
   // or a constant but rather that instruction and constant really inherit stuff
   // from User (as opposed to type or constant that are interfaces for instance)
   value mkBinInstruction(const Instruction *I) {
-    value inst = caml_alloc(5,7);
+    value inst = caml_alloc(5,5);
     std::ostringstream out;
     std::string s;
     out << "%" << I;
@@ -262,7 +257,6 @@ namespace {
   }
 
   value mkAlignment(unsigned al) {
-    errs() << "Alignment is " << al << "\n";
     value alignment;
     if (al == 0) alignment = Val_int(0);
     else { 
@@ -314,6 +308,12 @@ namespace {
     return op;
   }
 
+  value mkPredicate(int predicate) {
+    if (predicate >= CmpInst::FIRST_FCMP_PREDICATE && predicate <= CmpInst::LAST_FCMP_PREDICATE)
+      return Val_int(predicate);
+    else return Val_int(predicate - 32);
+  }
+
   value convert(const Instruction *I) {
     errs() << "Instruction: " << *I << "\n";
     value inst = Val_int(0);
@@ -350,21 +350,34 @@ namespace {
     }
     if (isa<BranchInst>(I)) {
       inst = caml_alloc(3,1);
-      const BranchInst *I = cast<BranchInst>(I);
-      if (I->isConditional()) {
-	Store_field(inst,0,mkSome(mkTop(I->getCondition())));
-	std::string label1 = I->getSuccessor(0)->getNameStr();
+      const BranchInst *B = cast<BranchInst>(I);
+      if (B->isConditional()) {
+	Store_field(inst,0,mkSome(mkTop(B->getCondition())));
+	std::string label1 = B->getSuccessor(0)->getNameStr();
 	Store_field(inst,1,caml_copy_string(label1.c_str()));
-	std::string label2 = I->getSuccessor(1)->getNameStr();
+	std::string label2 = B->getSuccessor(1)->getNameStr();
 	Store_field(inst,2,mkSome(caml_copy_string(label2.c_str())));
       }
       else {
 	Store_field(inst,0,Val_int(0));
-	std::string label = I->getSuccessor(0)->getNameStr();
+	std::string label = B->getSuccessor(0)->getNameStr();
 	Store_field(inst,1,caml_copy_string(label.c_str()));
 	Store_field(inst,2,Val_int(0));
       }
     }
+    if (isa<CmpInst>(I)) {
+      int code;
+      const CmpInst *C = cast<CmpInst>(I);
+      if (isa<ICmpInst>(I)) code = 11;
+      else code = 12;
+      inst = caml_alloc(5,code);
+      Store_field(inst,0,caml_copy_string("dst"));
+      Store_field(inst,1,mkPredicate(C->getPredicate()));
+      Store_field(inst,2,convert(C->getType()));
+      Store_field(inst,3,mkTop(C->getOperand(0)));
+      Store_field(inst,4,mkTop(C->getOperand(1)));
+    }
+
 //     if (isa<SwitchInst>(I)) {
 //       inst = caml_alloc(4,2);
 //       const SwitchInst *I = cast<SwitchInst>(I);
@@ -404,16 +417,14 @@ namespace {
   }
     
   value convert(const BasicBlock *B) {
-    errs() << "Converting basic block\n";
     value block = caml_alloc(2,0);
-    Store_field(block,0,caml_copy_string(B->getNameStr().c_str()));
+    Store_field(block,0,caml_copy_string("LABEL"));
     value l = convertList<Instruction,BasicBlock::const_iterator>(&B->getInstList());
     Store_field(block,1,l);
     return block;
   }
 
   value convert (const Function *F) {
-    errs () << "Converting function\n";
     value f = caml_alloc(3,0);
     value s = caml_copy_string(F->getNameStr().c_str());
     Store_field(f,0,s);

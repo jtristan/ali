@@ -41,8 +41,8 @@ type icmpOp =
   | SGT | SGE | SLT | SLE
       
 type fcmpOp = 
-  | Oeq | Ogt | Oge | Olt | Ole | One | ORD
-  | Ueq | Ugt | Uge | Ult | Ule | Une | Uno
+  Ffalse | Oeq | Ogt | Oge | Olt | Ole | One | Ord
+    | Uno | Ueq | Ugt | Uge | Ult | Ule | Une | Ftrue
   
 type castop =
   | Trunc 
@@ -127,6 +127,8 @@ type label = string
 
 type top = typ * operand
 
+type inbound = bool
+
 type instruction = 
   | Ret of top option
   | Br of top option * label * label option
@@ -139,8 +141,7 @@ type instruction =
   | Alloca of var * typ * (typ * int32) option * alignment option
   | Load of var * volatile * top * alignment option  
   | Store of volatile * top * top * alignment option
-      (* TODO *)
-  | GetElelemtPtr of string
+  | GetElelemtPtr of inbound * top * (typ * index) list
   | CastOp of var * castop * top * typ
   | Icmp of var * icmpOp * typ * top * top
   | Fcmp of var * fcmpOp * typ * top * top
@@ -222,8 +223,47 @@ let print_bop oc b =
       | Or -> "or"
       | Xor -> "xor"
   in
-  Printf.fprintf oc "%s" s; flush stdout
+  Printf.fprintf oc "%s" s
 ;;
+
+let print_icmpOp oc o =
+  let s = 
+    match o with
+      | EQ -> "eq"
+      | NE -> "ne"
+      | UGT -> "ugt"
+      | UGE -> "uge"
+      | ULT -> "ult"
+      | ULE -> "ule"
+      | SGT -> "sgt"
+      | SGE -> "sge"
+      | SLT -> "slt"
+      | SLE -> "sle"
+  in
+  Printf.fprintf oc "%s" s
+;;
+      
+let print_fcmpOp oc o =
+  let s = 
+    match o with
+      | Ffalse -> "false"
+      | Oeq -> "oeq"
+      | Ogt -> "ogt"
+      | Oge -> "oge"
+      | Olt -> "olt"
+      | Ole -> "ole"
+      | One -> "one"
+      | Ord -> "ord"
+      | Uno -> "uno"
+      | Ueq -> "ueq"
+      | Ugt -> "ugt"
+      | Uge -> "uge"
+      | Ult -> "ult"
+      | Ule -> "ule"
+      | Une -> "une"
+      | Ftrue -> "true"
+  in
+  Printf.fprintf oc "%s" s
 
 let print_align oc a = 
   match a with
@@ -232,14 +272,14 @@ let print_align oc a =
 
 let string_volatile v = if v then "volatile " else ""
 
-let print_ret oc r =
-  Printf.fprintf oc "Ret"; flush stdout;
-  match r with
-    | None -> ()
-    | Some (t,e) -> Printf.fprintf oc " %a %a" print_type t print_operand e
-
 let print_top oc t = 
   Printf.fprintf oc " [%a: %a]" print_type (fst t) print_operand (snd t)
+
+let print_ret oc r =
+  Printf.fprintf oc "Ret";
+  match r with
+    | None -> ()
+    | Some t -> Printf.fprintf oc " %a" print_top t
 
 let print_instruction oc i =
   match i with
@@ -255,22 +295,24 @@ let print_instruction oc i =
     | Load (dst,vol,o,al) -> Printf.fprintf oc "%s = %sload %a %a" dst (string_volatile vol) print_top o print_align al
     | Store (vol,e1,e2,al) -> Printf.fprintf oc "%sstore %a, %a %a" (string_volatile vol) print_top e1 print_top e2 print_align al
     | GetElelemtPtr _ -> Printf.fprintf oc "GetElementPtr"
+    | Icmp (dst,c,t,e1,e2) -> Printf.fprintf oc "%s = icmp %a %a %a %a" dst print_icmpOp c print_type t print_top e1 print_top e2
+    | Fcmp (dst,c,t,e1,e2) -> Printf.fprintf oc "%s = fcmp %a %a %a %a" dst print_fcmpOp c print_type t print_top e1 print_top e2
+    | Intrinsic _ -> Printf.fprintf oc "Intrinsic"
     | _ -> Printf.fprintf oc "Instruction NYI\n"
 ;;
 
 let print_basicBlock oc b = 
-  Printf.fprintf oc "\n";
-  Printf.fprintf oc "%s\n" b.label;
+  Printf.fprintf oc "%s:\n" b.label;
   List.iter (fun i -> print_instruction oc i; Printf.fprintf oc "\n"; flush stdout) b.instrs  
 
 let print_body oc =
   List.iter (print_basicBlock oc) 
 
 let print_args oc args = 
-  List.iter (fun arg -> Printf.fprintf oc "%s: %a; " arg.nam print_type arg.typ) args
+  List.iter (fun arg -> Printf.fprintf oc "%s: %a, " arg.nam print_type arg.typ) args
 
 let print_function oc f = 
-  Printf.fprintf oc "{name: %s;\n args: %a;\n body: %a\n}" f.name print_args f.args print_body f.body 
+  Printf.fprintf oc "define %s (%a) {\n%a}" f.name print_args f.args print_body f.body 
 
 let print = print_function stdout
 
