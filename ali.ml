@@ -273,10 +273,10 @@ let print_align oc a =
 let string_volatile v = if v then "volatile " else ""
 
 let print_top oc t = 
-  Printf.fprintf oc " [%a: %a]" print_type (fst t) print_operand (snd t)
+  Printf.fprintf oc " [%a: %a]" print_operand (snd t) print_type (fst t)
 
 let print_ret oc r =
-  Printf.fprintf oc "Ret";
+  Printf.fprintf oc "return";
   match r with
     | None -> ()
     | Some t -> Printf.fprintf oc " %a" print_top t

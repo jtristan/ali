@@ -34,11 +34,18 @@ namespace {
     
   };
 
-  typedef std::map<Instruction*,unsigned> naming;
+  template <class T> class Namer {
+  private:
+    unsigned counter;
+    std::map<T,unsigned> m; 
+  public:
+    Namer() : counter(0) {};
+    void assign(T t) { m[t] = ++ counter; }
+    unsigned get(T t) { return m[t]; }
+  };
 
-  unsigned count = 0;
-  naming m;
-  
+  Namer<const Instruction*> instNames;
+  Namer<const BasicBlock*> blockNames;
 
   template <class T, class IT> value convertList(const iplist<T> *L) {
     value l = Val_int(0);
@@ -143,7 +150,7 @@ namespace {
       user = caml_alloc(1,1);
       std::string var;
       std::ostringstream out;
-      out << "%" << V;
+      out << "%" << instNames.get(cast<const Instruction>(V));
       var = out.str();
       Store_field(user,0,caml_copy_string(var.c_str()));
     }      
@@ -244,11 +251,11 @@ namespace {
   // from User (as opposed to type or constant that are interfaces for instance)
   value mkBinInstruction(const Instruction *I) {
     value inst = caml_alloc(5,5);
+    std::string var;
     std::ostringstream out;
-    std::string s;
-    out << "%" << I;
-    s = out.str();
-    Store_field(inst,0,caml_copy_string(s.c_str()));
+    out << "%" << instNames.get(I);
+    var = out.str();
+    Store_field(inst,0,caml_copy_string(var.c_str()));
     Store_field(inst,1,mkOpcode(I)); 
     Store_field(inst,2,convert(I->getType()));
     Store_field(inst,3,mkTop(I->getOperand(0))); 
@@ -315,14 +322,19 @@ namespace {
   }
 
   value convert(const Instruction *I) {
-    errs() << "Instruction: " << *I << "\n";
+    errs() << *I << "\n";
+    instNames.assign(I);
+    std::string var;
+    std::ostringstream out;
+    out << "%" << instNames.get(I);
+    var = out.str();
     value inst = Val_int(0);
     if (I->isBinaryOp()) 
       inst = mkBinInstruction(I);
     if (isa<LoadInst>(I)) {
       inst = caml_alloc(4,7);
       const LoadInst *L = cast<LoadInst>(I);
-      Store_field(inst,0,caml_copy_string("dst"));
+      Store_field(inst,0,caml_copy_string(var.c_str()));
       Store_field(inst,1,L->isVolatile()? Val_int(1):Val_int(0));
       Store_field(inst,2,mkTop(L->getPointerOperand()));
       Store_field(inst,3,mkAlignment(L->getAlignment()));
@@ -330,7 +342,7 @@ namespace {
     if (isa<AllocaInst>(I)) {
       inst = caml_alloc(4,6);
       const AllocaInst *A = cast<AllocaInst>(I);
-      Store_field(inst,0,caml_copy_string("dst"));
+      Store_field(inst,0,caml_copy_string(var.c_str()));
       Store_field(inst,1,convert(A->getAllocatedType()));
       Store_field(inst,2,convertOption(A->getArraySize())); 
       Store_field(inst,3,mkAlignment(A->getAlignment()));
@@ -371,7 +383,7 @@ namespace {
       if (isa<ICmpInst>(I)) code = 11;
       else code = 12;
       inst = caml_alloc(5,code);
-      Store_field(inst,0,caml_copy_string("dst"));
+      Store_field(inst,0,caml_copy_string(var.c_str()));
       Store_field(inst,1,mkPredicate(C->getPredicate()));
       Store_field(inst,2,convert(C->getType()));
       Store_field(inst,3,mkTop(C->getOperand(0)));
@@ -417,8 +429,13 @@ namespace {
   }
     
   value convert(const BasicBlock *B) {
+    blockNames.assign(B);
+    std::string label;
+    std::ostringstream out;
+    out << "%label" << blockNames.get(B);
+    label = out.str();
     value block = caml_alloc(2,0);
-    Store_field(block,0,caml_copy_string("LABEL"));
+    Store_field(block,0,caml_copy_string(label.c_str()));
     value l = convertList<Instruction,BasicBlock::const_iterator>(&B->getInstList());
     Store_field(block,1,l);
     return block;
