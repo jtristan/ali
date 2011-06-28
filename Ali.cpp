@@ -6,10 +6,12 @@
 #include "llvm/DerivedTypes.h"
 #include "llvm/InstrTypes.h"
 #include "llvm/Instructions.h"
+#include "llvm/IntrinsicInst.h"
 
 #include <map>
 #include <sstream>
 #include <exception>
+#include <list>
 
 extern "C"{
 #include </usr/local/lib/ocaml/caml/mlvalues.h>
@@ -325,6 +327,20 @@ namespace {
     return tuple;
   }
 
+  value mkList(std::list<value> l) {
+    value nl = Val_int(0);
+    value tmp = Val_int(0);
+    for (std::list<value>::iterator I = l.begin(); I != l.end(); ++I) {
+      value cell = caml_alloc(2,0);
+      Store_field(cell,0,*I);
+      Store_field(cell,1,Val_int(0));
+      if (nl == Val_int(0)) nl = cell;
+      if (tmp != Val_int(0)) Store_field(tmp,1,cell); 
+      tmp = cell;
+    }
+    return nl;
+  }
+ 
   value convert(const Instruction *I) {
     errs() << *I << "\n";
     instNames.assign(I);
@@ -396,42 +412,57 @@ namespace {
       const ExtractElementInst *E = cast<ExtractElementInst>(I);
       inst = caml_alloc(3,15);
       Store_field(inst,0,caml_copy_string(var.c_str()));
-      Store_field(inst,1,convert(E->getVectorOperand()));
+      Store_field(inst,1,mkTop(E->getVectorOperand()));
       Store_field(inst,2,convert(E->getIndexOperand()));
     }
     if (isa<InsertElementInst>(I)) {
       const InsertElementInst *E = cast<InsertElementInst>(I);
       inst = caml_alloc(4,16);
       Store_field(inst,0,caml_copy_string(var.c_str()));
-      Store_field(inst,1,convert(E->getOperand(0)));
-      Store_field(inst,2,convert(E->getOperand(1)));
+      Store_field(inst,1,mkTop(E->getOperand(0)));
+      Store_field(inst,2,mkTop(E->getOperand(1)));
       Store_field(inst,3,convert(E->getOperand(2)));
     }
     if (isa<ShuffleVectorInst>(I)) {
       const ShuffleVectorInst *E = cast<ShuffleVectorInst>(I);
       inst = caml_alloc(4,17);
       Store_field(inst,0,caml_copy_string(var.c_str()));
-      Store_field(inst,1,convert(E->getOperand(0)));
-      Store_field(inst,2,convert(E->getOperand(1)));
-      Store_field(inst,3,convert(E->getOperand(2)));
+      Store_field(inst,1,mkTop(E->getOperand(0)));
+      Store_field(inst,2,mkTop(E->getOperand(1)));
+      Store_field(inst,3,mkTop(E->getOperand(2)));
     }
     if (isa<PHINode>(I)) {
       const PHINode *N = cast<PHINode>(I);
       inst = caml_alloc(3,13);
       Store_field(inst,0,caml_copy_string(var.c_str()));
-      Store_field(inst,1,N->getType());
-      value list;
+      Store_field(inst,1,convert(N->getType()));
+      std::list<value> l;
       for (unsigned i = 0 ; i < N->getNumIncomingValues(); ++i) {
-	value l = blockNames.get(N->getIncomingBlock(i));
+	value lab = caml_copy_string(blockNames.get(N->getIncomingBlock(i)).c_str());
 	value v = convert(N->getIncomingValue(i)); 
-	value t = mkTuple(l,v);
-	
+	value t = mkTuple(lab,v);
+	l.push_back(t);
       }
-
-      Store_field(inst,2,);
+      Store_field(inst,2,mkList(l));
     }
-
-
+    if (isa<CastInst>(I)) {
+      const CastInst *C = cast<CastInst>(I);
+      inst = caml_alloc(4,10);
+      Store_field(inst,0,caml_copy_string(var.c_str()));
+      Store_field(inst,1,Val_int(C->getOpcode() - 30));
+      Store_field(inst,2,mkTop(C->getOperand(0)));
+      Store_field(inst,3,convert(C->getDestTy()));
+    }
+    if (isa<ExtractValueInst>(I)) inst = caml_alloc(4,18);
+    if (isa<InsertValueInst>(I)) inst = caml_alloc(5,19);
+    if (isa<SwitchInst>(I)) inst = caml_alloc(4,2);
+    if (isa<IndirectBrInst>(I)) inst = caml_alloc(2,3);
+    if (isa<InvokeInst>(I)) inst = caml_alloc(8,4);
+    if (isa<GetElementPtrInst>(I)) inst = caml_alloc(3,9);
+    if (isa<SelectInst>(I)) inst = caml_alloc(5,14);
+    if (isa<VAArgInst>(I)) inst = caml_alloc(1,21);
+    if (isa<IntrinsicInst>(I)) inst = caml_alloc(1,22);
+    if (isa<CallInst>(I)) inst = caml_alloc(1,20); 
 
 //     if (isa<ExtractValueInst>(I)) {
 //       const ExtractValueInst *E = cast<ExtractValueInst>(I);

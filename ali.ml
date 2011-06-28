@@ -47,7 +47,7 @@ type fcmpOp =
 type castop =
   | Trunc 
   | Zext
-  | Sect
+  | Sext
   | FpTrunc
   | FpExt
   | FpToUi
@@ -142,7 +142,7 @@ type instruction =
   | Load of var * volatile * top * alignment option  
   | Store of volatile * top * top * alignment option
   | GetElelemtPtr of inbound * top * (typ * index) list
-  | CastOp of var * castop * top * typ
+  | Cast of var * castop * top * typ
   | Icmp of var * icmpOp * typ * top * top
   | Fcmp of var * fcmpOp * typ * top * top
   | Phi of var * typ * (label * top) list
@@ -152,7 +152,6 @@ type instruction =
   | ShuffleVector of var * top * top * top
   | ExtractValue of var * top * index * index list
   | InsertValue of var * top * top * index * index list
-      (* TODO *)
   | Call of string
   | Va_arg of string
   | Intrinsic of intrinsic
@@ -265,6 +264,24 @@ let print_fcmpOp oc o =
   in
   Printf.fprintf oc "%s" s
 
+let print_castOp oc o = 
+  let s = 
+    match o with
+      | Trunc -> "trunc"
+      | Zext -> "zext"
+      | Sext -> "sext"
+      | FpTrunc -> "fptruc"
+      | FpExt -> "fpext"
+      | FpToUi -> "fptoui"
+      | FpToSi -> "fptosi"
+      | UiToFp -> "uitofp"
+      | SiToFp -> "sitofp"
+      | PtrToInt -> "ptrtotint"
+      | IntToPtr -> "inttoptr"
+      | BitCast -> "bitcast"
+  in 
+  Printf.fprintf oc "%s" s
+
 let print_align oc a = 
   match a with
     | None -> Printf.fprintf oc ""
@@ -280,7 +297,6 @@ let print_ret oc r =
   match r with
     | None -> ()
     | Some t -> Printf.fprintf oc " %a" print_top t
-
 
 let print_option printer oc o =
   match o with 
@@ -306,8 +322,17 @@ let print_instruction oc i =
     | GetElelemtPtr _ -> Printf.fprintf oc "GetElementPtr"
     | Icmp (dst,c,t,e1,e2) -> Printf.fprintf oc "%s = icmp %a %a %a %a" dst print_icmpOp c print_type t print_top e1 print_top e2
     | Fcmp (dst,c,t,e1,e2) -> Printf.fprintf oc "%s = fcmp %a %a %a %a" dst print_fcmpOp c print_type t print_top e1 print_top e2
+    | Cast (dst,op,e,t) -> Printf.printf "%s = %a %a to %a" dst print_castOp op print_top e print_type t 
+    | Select _ -> Printf.fprintf oc "select"
+    | Phi _ -> Printf.fprintf oc "phi"
+    | ExtractValue _ -> Printf.fprintf oc "extractvalue"
+    | InsertValue _ -> Printf.fprintf oc "insertvalue"
+    | ExtractElement _ -> Printf.fprintf oc "extractelement"
+    | InsertElement _ -> Printf.fprintf oc "insertelement"
+    | ShuffleVector _ -> Printf.fprintf oc "shufflevector"
+    | Va_arg _ -> Printf.fprintf oc "va_arg"
+    | Call _ -> Printf.fprintf oc "call"
     | Intrinsic _ -> Printf.fprintf oc "Intrinsic"
-    | _ -> Printf.fprintf oc "Instruction NYI\n"
 ;;
 
 let print_basicBlock oc b = 
