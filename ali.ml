@@ -30,19 +30,54 @@ type wrap =
 type exact = bool
 
 type bop = 
-  | Add of wrap | FAdd | Sub of wrap | FSub
-  | Mul of wrap | FMul | UDiv of exact | SDiv of exact | FDiv
-  | URem | SRem | FRem
-  | Shl of wrap | LShr of exact | AShr of exact | And | Or | Xor
+  | Add of wrap 
+  | FAdd 
+  | Sub of wrap 
+  | FSub
+  | Mul of wrap 
+  | FMul 
+  | UDiv of exact 
+  | SDiv of exact 
+  | FDiv
+  | URem 
+  | SRem 
+  | FRem
+  | Shl of wrap 
+  | LShr of exact 
+  | AShr of exact 
+  | And 
+  | Or 
+  | Xor
       
 type icmpOp = 
-  | EQ | NE
-  | UGT | UGE | ULT | ULE
-  | SGT | SGE | SLT | SLE
+  | EQ 
+  | NE
+  | UGT 
+  | UGE 
+  | ULT 
+  | ULE
+  | SGT 
+  | SGE 
+  | SLT 
+  | SLE
       
 type fcmpOp = 
-  Ffalse | Oeq | Ogt | Oge | Olt | Ole | One | Ord
-    | Uno | Ueq | Ugt | Uge | Ult | Ule | Une | Ftrue
+  | Ffalse 
+  | Oeq 
+  | Ogt 
+  | Oge 
+  | Olt 
+  | Ole 
+  | One 
+  | Ord
+  | Uno 
+  | Ueq 
+  | Ugt 
+  | Uge 
+  | Ult 
+  | Ule 
+  | Une 
+  | Ftrue
   
 type castop =
   | Trunc 
@@ -141,7 +176,7 @@ type instruction =
   | Alloca of var * typ * (typ * int32) option * alignment option
   | Load of var * volatile * top * alignment option  
   | Store of volatile * top * top * alignment option
-  | GetElelemtPtr of inbound * top * (typ * index) list
+  | GetElelemtPtr of var * inbound * top * top list (* (typ * index) list ? *)
   | Cast of var * castop * top * typ
   | Icmp of var * icmpOp * typ * top * top
   | Fcmp of var * fcmpOp * typ * top * top
@@ -179,8 +214,10 @@ let rec print_type oc t =
     | ArrayT t -> Printf.fprintf oc "[%a]" print_type t
     | PointerT t -> Printf.fprintf oc "%a*" print_type t
     | VectorT t -> Printf.fprintf oc "<%a>" print_type t
-    | _ -> f "Type WTF?"
-  
+    | StructT t -> Printf.fprintf oc "struct type NIY"
+    | Opaque -> Printf.fprintf oc "opaque"
+    | FunctionT _ -> Printf.fprintf oc "function type NIY"
+
 let print_constant oc c = 
   match c with
     | I i -> Printf.fprintf oc "%s " (Int64.to_string i)
@@ -289,6 +326,8 @@ let print_align oc a =
 
 let string_volatile v = if v then "volatile " else ""
 
+let string_inbounds i = if i then "inbounds" else ""
+
 let print_top oc t = 
   Printf.fprintf oc " [%a: %a]" print_operand (snd t) print_type (fst t)
 
@@ -302,6 +341,9 @@ let print_option printer oc o =
   match o with 
     | None -> ()
     | Some x -> printer oc x
+
+let print_list printer oc l = 
+  List.iter (fun x -> Printf.fprintf oc "%a" printer x) l
 
 let print_label oc l =
   Printf.fprintf oc "%s" l
@@ -319,7 +361,7 @@ let print_instruction oc i =
     | Alloca (dst,t,_,al) -> Printf.fprintf oc "%s = alloca %a %a" dst print_type t print_align al
     | Load (dst,vol,o,al) -> Printf.fprintf oc "%s = %sload %a %a" dst (string_volatile vol) print_top o print_align al
     | Store (vol,e1,e2,al) -> Printf.fprintf oc "%sstore %a, %a %a" (string_volatile vol) print_top e1 print_top e2 print_align al
-    | GetElelemtPtr _ -> Printf.fprintf oc "GetElementPtr"
+    | GetElelemtPtr (dst,b,e,idx) -> Printf.fprintf oc "%s = getelementptr %s %a %a" dst (string_inbounds b) print_top e (print_list print_top) idx
     | Icmp (dst,c,t,e1,e2) -> Printf.fprintf oc "%s = icmp %a %a %a %a" dst print_icmpOp c print_type t print_top e1 print_top e2
     | Fcmp (dst,c,t,e1,e2) -> Printf.fprintf oc "%s = fcmp %a %a %a %a" dst print_fcmpOp c print_type t print_top e1 print_top e2
     | Cast (dst,op,e,t) -> Printf.printf "%s = %a %a to %a" dst print_castOp op print_top e print_type t 

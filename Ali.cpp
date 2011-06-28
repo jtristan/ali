@@ -458,7 +458,17 @@ namespace {
     if (isa<SwitchInst>(I)) inst = caml_alloc(4,2);
     if (isa<IndirectBrInst>(I)) inst = caml_alloc(2,3);
     if (isa<InvokeInst>(I)) inst = caml_alloc(8,4);
-    if (isa<GetElementPtrInst>(I)) inst = caml_alloc(3,9);
+    if (isa<GetElementPtrInst>(I)) { 
+      const GetElementPtrInst *G = cast<GetElementPtrInst>(I);
+      inst = caml_alloc(4,9);
+      Store_field(inst,0,caml_copy_string(var.c_str()));
+      Store_field(inst,1,G->isInBounds()?Val_int(1):Val_int(0));
+      Store_field(inst,2,mkTop(G->getPointerOperand()));
+      std::list<value> l;
+      for (User::const_op_iterator I = G->idx_begin(); I != G->idx_end(); ++I) 
+	l.push_back(mkTop(I->get()));
+      Store_field(inst,3,mkList(l));
+    }
     if (isa<SelectInst>(I)) inst = caml_alloc(5,14);
     if (isa<VAArgInst>(I)) inst = caml_alloc(1,21);
     if (isa<IntrinsicInst>(I)) inst = caml_alloc(1,22);
