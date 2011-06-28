@@ -145,7 +145,7 @@ type instruction =
   | CastOp of var * castop * top * typ
   | Icmp of var * icmpOp * typ * top * top
   | Fcmp of var * fcmpOp * typ * top * top
-  | Phi of var * typ * top list
+  | Phi of var * typ * (label * top) list
   | Select of var * typ * top * top * operand
   | ExtractElement of var * top * index
   | InsertElement of var * top * top * index

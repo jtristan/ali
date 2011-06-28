@@ -318,6 +318,13 @@ namespace {
     else return Val_int(predicate - 32);
   }
 
+  value mkTuple(value fst, value snd) {
+    value tuple = caml_alloc(2,0);
+    Store_field(tuple,0,fst);
+    Store_field(tuple,1,snd);
+    return tuple;
+  }
+
   value convert(const Instruction *I) {
     errs() << *I << "\n";
     instNames.assign(I);
@@ -385,7 +392,64 @@ namespace {
     }
     if (isa<UnreachableInst>(I)) inst = Val_int(1);
     if (isa<UnwindInst>(I)) inst = Val_int(0);
+    if (isa<ExtractElementInst>(I)) {
+      const ExtractElementInst *E = cast<ExtractElementInst>(I);
+      inst = caml_alloc(3,15);
+      Store_field(inst,0,caml_copy_string(var.c_str()));
+      Store_field(inst,1,convert(E->getVectorOperand()));
+      Store_field(inst,2,convert(E->getIndexOperand()));
+    }
+    if (isa<InsertElementInst>(I)) {
+      const InsertElementInst *E = cast<InsertElementInst>(I);
+      inst = caml_alloc(4,16);
+      Store_field(inst,0,caml_copy_string(var.c_str()));
+      Store_field(inst,1,convert(E->getOperand(0)));
+      Store_field(inst,2,convert(E->getOperand(1)));
+      Store_field(inst,3,convert(E->getOperand(2)));
+    }
+    if (isa<ShuffleVectorInst>(I)) {
+      const ShuffleVectorInst *E = cast<ShuffleVectorInst>(I);
+      inst = caml_alloc(4,17);
+      Store_field(inst,0,caml_copy_string(var.c_str()));
+      Store_field(inst,1,convert(E->getOperand(0)));
+      Store_field(inst,2,convert(E->getOperand(1)));
+      Store_field(inst,3,convert(E->getOperand(2)));
+    }
+    if (isa<PHINode>(I)) {
+      const PHINode *N = cast<PHINode>(I);
+      inst = caml_alloc(3,13);
+      Store_field(inst,0,caml_copy_string(var.c_str()));
+      Store_field(inst,1,N->getType());
+      value list;
+      for (unsigned i = 0 ; i < N->getNumIncomingValues(); ++i) {
+	value l = blockNames.get(N->getIncomingBlock(i));
+	value v = convert(N->getIncomingValue(i)); 
+	value t = mkTuple(l,v);
+	
+      }
 
+      Store_field(inst,2,);
+    }
+
+
+
+//     if (isa<ExtractValueInst>(I)) {
+//       const ExtractValueInst *E = cast<ExtractValueInst>(I);
+//       inst = caml_alloc(4,18);
+//       Store_field(inst,0,caml_copy_string(var.c_str()));
+//       Store_field(inst,1,convert(E->getAggregateOperand()));
+//       Store_field(inst,2,);
+//       Store_field(inst,3,);
+//     }
+//     if (isa<InsertValueInst>(I)) {
+//       const InsertValueInst *E = cast<InsertValueInst>(I);
+//       inst = caml_alloc(5,19);
+//       Store_field(inst,0,caml_copy_string(var.c_str()));
+//       Store_field(inst,1,convert(E->getAggregateOperand()));
+//       Store_field(inst,2,convert(E->getInsertedValueOperand()));
+//       Store_field(inst,3,);
+//       Store_field(inst,4,);
+//     }
 //     if (isa<SwitchInst>(I)) {
 //       inst = caml_alloc(4,2);
 //       const SwitchInst *I = cast<SwitchInst>(I);
@@ -413,12 +477,7 @@ namespace {
 //       Store_field(inst,6,);
 //       Store_field(inst,7,);
 //     }
-//     if (isa<UnwindInst>(I)) {
-//       inst = Val_int(0);
-//     }
-//     if (isa<UnreachableInst>(I)) {
-//       inst = Val_int(1);
-//     }
+
      
 
     return inst;
