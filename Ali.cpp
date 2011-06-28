@@ -37,11 +37,16 @@ namespace {
   template <class T> class Namer {
   private:
     unsigned counter;
-    std::map<T,unsigned> m; 
+    std::map<T,std::string> m; 
   public:
     Namer() : counter(0) {};
-    void assign(T t) { m[t] = ++ counter; }
-    unsigned get(T t) { return m[t]; }
+    void assign(T t) { 
+      std::string var;
+      std::ostringstream out;
+      out << "%" << ++counter;
+      var = out.str();
+      m[t] = var; }
+    std::string get(T t) { return m[t]; }
   };
 
   Namer<const Instruction*> instNames;
@@ -148,11 +153,7 @@ namespace {
     // Get the variable correspong to the instruction
     if (isa<Instruction>(V)) {
       user = caml_alloc(1,1);
-      std::string var;
-      std::ostringstream out;
-      out << "%" << instNames.get(cast<const Instruction>(V));
-      var = out.str();
-      Store_field(user,0,caml_copy_string(var.c_str()));
+      Store_field(user,0,caml_copy_string(instNames.get(cast<const Instruction>(V)).c_str()));
     }      
     // convert the constant
     if (isa<Constant>(V)) {
@@ -251,11 +252,7 @@ namespace {
   // from User (as opposed to type or constant that are interfaces for instance)
   value mkBinInstruction(const Instruction *I) {
     value inst = caml_alloc(5,5);
-    std::string var;
-    std::ostringstream out;
-    out << "%" << instNames.get(I);
-    var = out.str();
-    Store_field(inst,0,caml_copy_string(var.c_str()));
+    Store_field(inst,0,caml_copy_string(instNames.get(I).c_str()));
     Store_field(inst,1,mkOpcode(I)); 
     Store_field(inst,2,convert(I->getType()));
     Store_field(inst,3,mkTop(I->getOperand(0))); 
@@ -324,10 +321,7 @@ namespace {
   value convert(const Instruction *I) {
     errs() << *I << "\n";
     instNames.assign(I);
-    std::string var;
-    std::ostringstream out;
-    out << "%" << instNames.get(I);
-    var = out.str();
+    std::string var = instNames.get(I);
     value inst = Val_int(0);
     if (I->isBinaryOp()) 
       inst = mkBinInstruction(I);
@@ -365,14 +359,14 @@ namespace {
       const BranchInst *B = cast<BranchInst>(I);
       if (B->isConditional()) {
 	Store_field(inst,0,mkSome(mkTop(B->getCondition())));
-	std::string label1 = B->getSuccessor(0)->getNameStr();
+	std::string label1 = blockNames.get(B->getSuccessor(0));
 	Store_field(inst,1,caml_copy_string(label1.c_str()));
-	std::string label2 = B->getSuccessor(1)->getNameStr();
+	std::string label2 = blockNames.get(B->getSuccessor(1));
 	Store_field(inst,2,mkSome(caml_copy_string(label2.c_str())));
       }
       else {
 	Store_field(inst,0,Val_int(0));
-	std::string label = B->getSuccessor(0)->getNameStr();
+	std::string label = blockNames.get(B->getSuccessor(0));
 	Store_field(inst,1,caml_copy_string(label.c_str()));
 	Store_field(inst,2,Val_int(0));
       }
@@ -389,6 +383,8 @@ namespace {
       Store_field(inst,3,mkTop(C->getOperand(0)));
       Store_field(inst,4,mkTop(C->getOperand(1)));
     }
+    if (isa<UnreachableInst>(I)) inst = Val_int(1);
+    if (isa<UnwindInst>(I)) inst = Val_int(0);
 
 //     if (isa<SwitchInst>(I)) {
 //       inst = caml_alloc(4,2);
@@ -429,13 +425,8 @@ namespace {
   }
     
   value convert(const BasicBlock *B) {
-    blockNames.assign(B);
-    std::string label;
-    std::ostringstream out;
-    out << "%label" << blockNames.get(B);
-    label = out.str();
     value block = caml_alloc(2,0);
-    Store_field(block,0,caml_copy_string(label.c_str()));
+    Store_field(block,0,caml_copy_string(blockNames.get(B).c_str()));
     value l = convertList<Instruction,BasicBlock::const_iterator>(&B->getInstList());
     Store_field(block,1,l);
     return block;
@@ -447,6 +438,10 @@ namespace {
     Store_field(f,0,s);
     value args = convertList<Argument,Function::const_arg_iterator>(&F->getArgumentList());
     Store_field(f,1,args);
+    for (Function::const_iterator I = F->getBasicBlockList().begin(), 
+	   E = F->getBasicBlockList().end(); 
+	 I != E; ++I) 
+      blockNames.assign(I); 
     value body = convertList<BasicBlock,Function::const_iterator>(&F->getBasicBlockList());
     Store_field(f,2,body);
     

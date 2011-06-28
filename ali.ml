@@ -281,10 +281,19 @@ let print_ret oc r =
     | None -> ()
     | Some t -> Printf.fprintf oc " %a" print_top t
 
+
+let print_option printer oc o =
+  match o with 
+    | None -> ()
+    | Some x -> printer oc x
+
+let print_label oc l =
+  Printf.fprintf oc "%s" l
+
 let print_instruction oc i =
   match i with
-    | Ret r -> print_ret oc r
-    | Br _ -> Printf.fprintf oc "Br"
+    | Ret r -> Printf.fprintf oc "ret %a" (print_option print_top) r
+    | Br (cond,l1,l2) -> Printf.fprintf oc "br %a %s %a" (print_option print_top) cond l1 (print_option print_label) l2  
     | Switch _ -> Printf.fprintf oc "Switch"
     | IndirectBr _ -> Printf.fprintf oc "IndirectBr"
     | Invoke _ -> Printf.fprintf oc "Invoke"
