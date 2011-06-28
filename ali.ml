@@ -164,6 +164,8 @@ type top = typ * operand
 
 type inbound = bool
 
+type tail = bool
+
 type instruction = 
   | Ret of top option
   | Br of top option * label * label option
@@ -176,7 +178,7 @@ type instruction =
   | Alloca of var * typ * (typ * int32) option * alignment option
   | Load of var * volatile * top * alignment option  
   | Store of volatile * top * top * alignment option
-  | GetElelemtPtr of var * inbound * top * top list (* (typ * index) list ? *)
+  | GetElelemtPtr of var * inbound * top * top list 
   | Cast of var * castop * top * typ
   | Icmp of var * icmpOp * typ * top * top
   | Fcmp of var * fcmpOp * typ * top * top
@@ -187,12 +189,37 @@ type instruction =
   | ShuffleVector of var * top * top * top
   | ExtractValue of var * top * index * index list
   | InsertValue of var * top * top * index * index list
-  | Call of string
+  | Call of var * tail * calling_convention * attribute * typ * top * top list * fattribute
   | Va_arg of string
   | Intrinsic of intrinsic
    
 type basicBlock = {label: string; instrs: instruction list}
 type code = basicBlock list
+
+type linkage = 
+  | Private
+  | Linker_private
+  | Linker_private_weak
+  | Linker_private_weak_def_auto
+  | Internal
+  | Available_externally
+  | Linkonce
+  | Weak
+  | Common
+  | Appending
+  | Extern_weak
+  | Linkonce_odr
+  | Weak_odr
+  | Externally_visible
+  | Dllimport
+  | Dllexport
+
+type visibility =
+  | Default
+  | Hidden
+  | Protected
+
+type gc = string option
 
 type arg = {nam: string; typ: typ}
 type func = {name: string; args: arg list; body: code}
