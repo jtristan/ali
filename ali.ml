@@ -1,4 +1,12 @@
 
+(* TODO:
+Missing constant expressions;
+Missing cc n calling convention  
+Missing metadata
+Missing inline assembly
+Where are the named types?
+*)
+
 type 'a option = 
   | None
   | Some of 'a
@@ -93,7 +101,6 @@ type castop =
   | IntToPtr
   | BitCast
 
-(* Missing constant expressions *)
 type constant =
   | True
   | False
@@ -109,7 +116,6 @@ type constant =
   | Fun of string
   | Undef
   | Blockaddress of string * string
-  | NYI
 
 type var = string
 
@@ -219,10 +225,56 @@ type visibility =
   | Hidden
   | Protected
 
-type gc = string option
+type gc = string
 
-type arg = {nam: string; typ: typ}
-type func = {name: string; args: arg list; body: code}
+type arg = {
+  nam: string; 
+  typ: typ
+}
+
+type alias = { 
+  aname: string;
+  alinkage: linkage option;
+  avisibility: visibility option;
+  aaliaseeType: typ;
+  aaliasee: var
+}
+
+type func = {
+  flinkage: linkage option;
+  fvisibility: visibility option;
+  fcconv: calling_convention option;
+  fretat: attribute list;
+  frettype: typ;
+  fname: string; 
+  fargs: arg list;
+  ffattr: fattribute list;
+  fsection: string option;
+  falign: alignment option;
+  fgc: gc option;
+  fbody: code
+}
+
+type global = {
+  gname: string;
+  galignment: alignment option;
+  gvisibility: visibility option;
+  glinkage: linkage option;
+  gtyp: typ;
+  gconst: constant;
+  gthread_local: bool;
+  gsection: string option
+}
+
+type modul = {
+  midentifier: string;
+  mtargetlayout: string option;
+  mglobals: global list;
+  mfunctions: func list;
+  malias: alias list;
+  mlibraries: string list
+}
+
 type transform = func -> func
 
 let rec print_type oc t = 
