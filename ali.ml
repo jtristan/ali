@@ -28,6 +28,7 @@ type typ =
   | ArrayT of typ
   | PointerT of typ
   | VectorT of typ
+  | Rec of int32
 
 type wrap =
   | Wnone
@@ -296,6 +297,7 @@ let rec print_type oc t =
     | StructT t -> Printf.fprintf oc "struct type NIY"
     | Opaque -> Printf.fprintf oc "opaque"
     | FunctionT _ -> Printf.fprintf oc "function type NIY"
+    | Rec i -> Printf.fprintf oc "rec %s" (Int32.to_string i) 
 
 let print_constant oc c = 
   match c with
@@ -464,10 +466,10 @@ let print_body oc =
   List.iter (print_basicBlock oc) 
 
 let print_args oc args = 
-  List.iter (fun arg -> Printf.fprintf oc "%s: %a, " arg.nam print_type arg.typ) args
+  List.iter (fun arg -> Printf.fprintf oc "%s: %a, " arg.nam print_type arg.typ; flush stdout) args
 
-let print_function oc f = 
-  Printf.fprintf oc "define %s (%a) {\n%a}" f.name print_args f.args print_body f.body 
+let print_function oc (f: func) =
+  Printf.fprintf oc "define %s (%a) {\n%a}" f.fname print_args f.fargs print_body f.fbody 
 
 let print = print_function stdout
 

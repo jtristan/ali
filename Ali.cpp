@@ -70,10 +70,19 @@ namespace {
     return l;
   }  
 
+  typedef std::map<const Type *,int> tMap;
 
-  // conversion of types
-  value convert(const Type *T) {
+  value convert_aux(const Type *T, int depth, tMap *typeMap) {
+    //errs() << "Type: " << "\n";
     value typ = Val_int(0);
+    if (typeMap->find(T) == typeMap->end()) 
+      (*typeMap)[T] = depth;
+    else // Recursive type?
+      {
+	typ = caml_alloc(1,6);
+	Store_field(typ,0,caml_copy_int32((*typeMap)[T]));
+	return typ;
+      }
     if (T->isPrimitiveType()) typ = Val_int(T->getTypeID());
     if (T->isIntegerTy()) {
       typ = caml_alloc(1,0);
@@ -82,46 +91,59 @@ namespace {
     }
     if (isa<SequentialType>(T)) {
       typ = caml_alloc(2,T->getTypeID() - 9); 
-      value arg = convert(cast<SequentialType>(T)->getElementType());
+      value arg = convert_aux(cast<SequentialType>(T)->getElementType(),depth+1,typeMap);
       Store_field(typ,0,arg);
     }
     if (T->isStructTy()) {
+      //errs() << "Struct type\n" ;
       typ = caml_alloc(1,2);
+      value head = Val_int(0);
       value current = Val_int(0);
       for (unsigned i = 0; i < cast<StructType>(T)->getNumElements(); ++i) {
 	value cell = caml_alloc(2,0);
-	Store_field(cell,0,convert(cast<StructType>(T)->getElementType(i)));
+	Store_field(cell,0,convert_aux(cast<StructType>(T)->getElementType(i),depth + 1,typeMap));
 	Store_field(cell,1,Val_int(0));
-	Store_field(current,1,cell);
-	if (typ == Val_int(0)) Store_field(typ,0,cell);
+	if (head == Val_int(0)) head = cell;
+	if (current != Val_int(0)) Store_field(current,1,cell); 
 	current = cell;
       }
+      Store_field(typ,0,head);
     }
     if (T->isOpaqueTy()) typ = Val_int(9);
     if(T->isFunctionTy()) {
+      //errs() << "Funciton type\n" ;
       typ = caml_alloc(2,1);
-      Store_field(typ,0,convert(cast<FunctionType>(T)->getReturnType()));
+      Store_field(typ,0,convert_aux(cast<FunctionType>(T)->getReturnType(), depth + 1, typeMap));
+      value head = Val_int(0);
       value current = Val_int(0);
       for (unsigned i = 0; i < cast<FunctionType>(T)->getNumParams(); ++i) {
 	value cell = caml_alloc(2,0);
-	Store_field(cell,0,convert(cast<FunctionType>(T)->getParamType(i)));
+	Store_field(cell,0,convert_aux(cast<FunctionType>(T)->getParamType(i),depth + 1, typeMap));
 	Store_field(cell,1,Val_int(0));
-	Store_field(current,1,cell);
-	if (typ == Val_int(0)) Store_field(typ,1,cell);
+	if (head == Val_int(0)) head = cell; 
+	if (current != Val_int(0)) Store_field(current,1,cell); 
 	current = cell;
       }
+      Store_field(typ,1,head);
     }
 
+    //errs() << "STOP\n";
     return typ;
   }
 
+  value convert(const Type *T) {
+    tMap typeMap;
+    return convert_aux(T,0,&typeMap);
+  }
+
   value convert(const Argument *A) {
+    errs() << "New argument" << *A << "\n\n";
     const Type *t = A->getType();
     value s = caml_copy_string((A->getNameStr()).c_str());
     value arg = caml_alloc(2,0);
-    // First name, Second type
     Store_field(arg,0,s);
     Store_field(arg,1,convert(t)); 
+    errs() << "Type converted \n" ;
     return arg;
   }
 
@@ -533,29 +555,33 @@ namespace {
   }
 
   value convert (const Function *F) {
-    value f = caml_alloc(3,0);
+    value f = caml_alloc(12,0);
     value s = caml_copy_string(F->getNameStr().c_str());
-    Store_field(f,0,s);
+    Store_field(f,5,s);
     value args = convertList<Argument,Function::const_arg_iterator>(&F->getArgumentList());
-    Store_field(f,1,args);
+    Store_field(f,6,args);
     for (Function::const_iterator I = F->getBasicBlockList().begin(), 
 	   E = F->getBasicBlockList().end(); 
 	 I != E; ++I) 
       blockNames.assign(I); 
     value body = convertList<BasicBlock,Function::const_iterator>(&F->getBasicBlockList());
-    Store_field(f,2,body);
+    Store_field(f,11,body);
     
+    errs() << "--> " << f << "\n";
     return f;
     
   }
 
   bool Ali::runOnFunction(Function &F) {
-    errs() << "Conversion\n\n";
-    value v = convert(&F);
-    errs() << "\n\nTransformation\n\n";
+    errs() << "Function: " << F.getNameStr() << "\n";
+    errs() << "Conversion... ";
+    CAMLlocal1 (v);
+    v = convert(&F);
+    errs() << "OK\n";
+    errs() << "\n\nTransformation... ";
     caml_callback(*caml_named_value("transform"),v); 
-    errs() << "\n\nEnd\n\n";
-    errs() << "Caml: " << F.getNameStr() << "\n";
+    errs() << "OK\n";
+    //CAMLreturn0;
     return false;
   }
 
