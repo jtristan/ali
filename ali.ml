@@ -4,7 +4,6 @@ Missing constant expressions;
 Missing cc n calling convention  
 Missing metadata
 Missing inline assembly
-Where are the named types?
 *)
 
 type 'a option = 
@@ -471,13 +470,14 @@ let print_args oc args =
 open Gc
 
 let print_function oc (f: func) =
-  Gc.compact();
   let stat = stat() in
   Printf.fprintf oc "free words: %i; free blocks: %i\n" stat.free_words stat.free_blocks; flush stdout;
 
   Printf.fprintf oc "define %s (%a) {\n%a}" f.fname print_args f.fargs print_body f.fbody 
 
-let print = print_function stdout
+let print = 
+  Gc.set { (Gc.get()) with Gc.verbose = 0x00d };
+  print_function stdout
 
 exception Caml
 let _ = Callback.register_exception "camlexn" (Caml)
@@ -489,3 +489,9 @@ let wrap f =
 
 let register (f : transform) = Callback.register "transform" (wrap f)
 
+let set () = 
+  Gc.set { (Gc.get()) with Gc.minor_heap_size = 100000000 }
+;;
+
+let _ = Callback.register "clean" Gc.minor
+let _ = Callback.register "set" set

@@ -502,8 +502,24 @@ namespace {
     }
     if (isa<SelectInst>(I)) inst = caml_alloc(5,14);
     if (isa<VAArgInst>(I)) inst = caml_alloc(1,21);
-    if (isa<IntrinsicInst>(I)) inst = caml_alloc(1,22);
-    if (isa<CallInst>(I)) inst = caml_alloc(1,20); 
+    if (isa<IntrinsicInst>(I)) {
+      inst = caml_alloc(1,22);
+      size_t ptr = (size_t) I;
+      Store_field(inst,0,caml_copy_int64(ptr)); // Not portable, big hack! 
+    }
+    if (isa<CallInst>(I))  {
+      const CallInst *C = cast<CallInst>(I);
+      inst = caml_alloc(8,20);
+      Store_field(inst,0,caml_copy_string(var.c_str()));
+      Store_field(inst,1,C->isTailCall()?Val_int(1):Val_int(0));
+      Store_field(inst,2,convert(C->getCallingConv()));
+      Store_field(inst,3,Val_int(0)); // NIY
+      Store_field(inst,4,convert(C->getType()));
+      Store_field(inst,5,mkTop(C->getCalledValue()));
+      
+      Store_field(inst,6,Val_int(0)); // NIY
+      Store_field(inst,7,Val_int(0)); // NIY
+    }
 
 //     if (isa<ExtractValueInst>(I)) {
 //       const ExtractValueInst *E = cast<ExtractValueInst>(I);
@@ -582,12 +598,10 @@ namespace {
   }
 
   bool Ali::runOnFunction(Function &F) {
-    //caml_register_global_root(&v);
-    //caml_register_global_root(&w);
-    errs() << "Function: " << F.getNameStr() << "\n";
-    errs() << "Conversion... ";
     CAMLlocal1 (v);
     CAMLlocal1 (w);
+    errs() << "Function: " << F.getNameStr() << "\n";
+    errs() << "Conversion... ";
     v = convert(&F);
     errs() << "OK\n";
     errs() << "\n\nTransformation... ";
@@ -596,7 +610,6 @@ namespace {
       errs() << "An exception occured in the OCaml code.\n" ;
     else 
       errs() << "OK\n";
-    
     return false;
   }
 
