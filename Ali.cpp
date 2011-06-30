@@ -56,13 +56,32 @@ namespace {
   Namer<const Instruction*> instNames;
   Namer<const BasicBlock*> blockNames;
 
-  template <class T, class IT> value convertList(const iplist<T> *L) {
+//   template <class T, class IT> value convertList(const iplist<T> *L) {
+//     CAMLparam0();
+//     CAMLlocal4(l,tmp,cell,a);
+    
+//     l = Val_int(0);
+//     tmp = Val_int(0);
+//     for (IT I = L->begin(), E = L->end(); I != E; ++I) {
+//       cell = caml_alloc(2,0);
+//       a = convert(I); 
+//       Store_field(cell,0,a);
+//       Store_field(cell,1,Val_int(0));
+//       if (l == Val_int(0)) l = cell;
+//       if (tmp != Val_int(0)) Store_field(tmp,1,cell); 
+//       tmp = cell;
+//     }
+    
+//     CAMLreturn(l);
+//   }  
+
+  template <typename IT> value convertIT(IT begin,IT end) {
     CAMLparam0();
     CAMLlocal4(l,tmp,cell,a);
     
     l = Val_int(0);
     tmp = Val_int(0);
-    for (IT I = L->begin(), E = L->end(); I != E; ++I) {
+    for (IT I = begin; I != end; ++I) {
       cell = caml_alloc(2,0);
       a = convert(I); 
       Store_field(cell,0,a);
@@ -141,7 +160,7 @@ namespace {
     CAMLlocal1(v);
 
     tMap typeMap;
-    v = convert_aux(T,0,&typeMap);
+    v = Val_int(0);//convert_aux(T,0,&typeMap);
 
     CAMLreturn(v);
   }
@@ -621,7 +640,8 @@ namespace {
 
     block = caml_alloc(2,0);
     Store_field(block,0,caml_copy_string(blockNames.get(B).c_str()));
-    l = convertList<Instruction,BasicBlock::const_iterator>(&B->getInstList());
+    //l = convertList<Instruction,BasicBlock::const_iterator>(&B->getInstList());
+    l = convertIT<BasicBlock::const_iterator>(B->begin(),B->end());
     Store_field(block,1,l);
 
     CAMLreturn(block);
@@ -634,13 +654,15 @@ namespace {
     f = caml_alloc(12,0);
     s = caml_copy_string(F->getNameStr().c_str());
     Store_field(f,5,s);
-    args = convertList<Argument,Function::const_arg_iterator>(&F->getArgumentList());
+    //args = convertList<Argument,Function::const_arg_iterator>(&F->getArgumentList());
+    args = convertIT<Function::const_arg_iterator>(F->arg_begin(),F->arg_end());
     Store_field(f,6,args);
     for (Function::const_iterator I = F->getBasicBlockList().begin(), 
 	   E = F->getBasicBlockList().end(); 
 	 I != E; ++I) 
       blockNames.assign(I); 
-    body = convertList<BasicBlock,Function::const_iterator>(&F->getBasicBlockList());
+    //body = convertList<BasicBlock,Function::const_iterator>(&F->getBasicBlockList());
+    body = convertIT<Function::const_iterator>(F->begin(),F->end());
     Store_field(f,11,body);
     
     CAMLreturn(f);    

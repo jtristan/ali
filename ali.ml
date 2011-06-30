@@ -475,7 +475,6 @@ let print_function oc (f: func) =
   Printf.fprintf oc "define %s (%a) {\n%a}" f.fname print_args f.fargs print_body f.fbody
 
 let print = 
-  Gc.set { (Gc.get()) with Gc.verbose = 0x00d };
   print_function stdout
 
 exception Caml
