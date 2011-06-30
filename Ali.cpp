@@ -85,8 +85,13 @@ namespace {
       }
     if (T->isPrimitiveType()) typ = Val_int(T->getTypeID());
     if (T->isIntegerTy()) {
+      errs() << "Integer type\n";
       typ = caml_alloc(1,0);
-      value bitwidth = caml_copy_int32(cast<IntegerType>(T)->getBitWidth());
+      int width = cast<IntegerType>(T)->getBitWidth();
+      errs() << "#2\n";
+      value bitwidth = caml_copy_int32(width);
+      errs() << "#3\n";
+
       Store_field(typ,0,bitwidth);
     }
     if (isa<SequentialType>(T)) {
@@ -95,7 +100,7 @@ namespace {
       Store_field(typ,0,arg);
     }
     if (T->isStructTy()) {
-      //errs() << "Struct type\n" ;
+      errs() << "Struct type\n" ;
       typ = caml_alloc(1,2);
       value head = Val_int(0);
       value current = Val_int(0);
@@ -111,7 +116,7 @@ namespace {
     }
     if (T->isOpaqueTy()) typ = Val_int(9);
     if(T->isFunctionTy()) {
-      //errs() << "Funciton type\n" ;
+      errs() << "Funciton type\n" ;
       typ = caml_alloc(2,1);
       Store_field(typ,0,convert_aux(cast<FunctionType>(T)->getReturnType(), depth + 1, typeMap));
       value head = Val_int(0);
@@ -127,13 +132,16 @@ namespace {
       Store_field(typ,1,head);
     }
 
-    //errs() << "STOP\n";
+    errs() << "STOP\n";
     return typ;
   }
 
   value convert(const Type *T) {
+    errs() << "starting type conversion\n";
     tMap typeMap;
-    return convert_aux(T,0,&typeMap);
+    value v = convert_aux(T,0,&typeMap);
+    errs() << "finished type conversion\n";
+    return v;
   }
 
   value convert(const Argument *A) {
@@ -364,18 +372,19 @@ namespace {
   }
  
   value convert(const Instruction *I) {
-    errs() << *I << "\n";
+    errs() << *I ;
     instNames.assign(I);
     std::string var = instNames.get(I);
     value inst = Val_int(0);
     if (I->isBinaryOp()) 
       inst = mkBinInstruction(I);
     if (isa<LoadInst>(I)) {
+      errs() << "#1\n";
       inst = caml_alloc(4,7);
       const LoadInst *L = cast<LoadInst>(I);
       Store_field(inst,0,caml_copy_string(var.c_str()));
       Store_field(inst,1,L->isVolatile()? Val_int(1):Val_int(0));
-      Store_field(inst,2,mkTop(L->getPointerOperand()));
+      Store_field(inst,2,mkTop(L->getPointerOperand())); // This one
       Store_field(inst,3,mkAlignment(L->getAlignment()));
     }
     if (isa<AllocaInst>(I)) {
@@ -542,7 +551,7 @@ namespace {
 //     }
 
      
-
+    errs() << "... OK\n";
     return inst;
   }
     
@@ -573,15 +582,21 @@ namespace {
   }
 
   bool Ali::runOnFunction(Function &F) {
+    //caml_register_global_root(&v);
+    //caml_register_global_root(&w);
     errs() << "Function: " << F.getNameStr() << "\n";
     errs() << "Conversion... ";
     CAMLlocal1 (v);
+    CAMLlocal1 (w);
     v = convert(&F);
     errs() << "OK\n";
     errs() << "\n\nTransformation... ";
-    caml_callback(*caml_named_value("transform"),v); 
-    errs() << "OK\n";
-    //CAMLreturn0;
+    w = caml_callback_exn(*caml_named_value("transform"),v); 
+    if (Is_exception_result(w)) 
+      errs() << "An exception occured in the OCaml code.\n" ;
+    else 
+      errs() << "OK\n";
+    
     return false;
   }
 

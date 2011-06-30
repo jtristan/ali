@@ -468,10 +468,24 @@ let print_body oc =
 let print_args oc args = 
   List.iter (fun arg -> Printf.fprintf oc "%s: %a, " arg.nam print_type arg.typ; flush stdout) args
 
+open Gc
+
 let print_function oc (f: func) =
+  Gc.compact();
+  let stat = stat() in
+  Printf.fprintf oc "free words: %i; free blocks: %i\n" stat.free_words stat.free_blocks; flush stdout;
+
   Printf.fprintf oc "define %s (%a) {\n%a}" f.fname print_args f.fargs print_body f.fbody 
 
 let print = print_function stdout
 
-let register (f : transform) = Callback.register "transform" f
+exception Caml
+let _ = Callback.register_exception "camlexn" (Caml)
+
+let wrap f = 
+  fun x ->
+    try f x with 
+      | _ -> raise Caml 
+
+let register (f : transform) = Callback.register "transform" (wrap f)
 
