@@ -410,12 +410,14 @@ let string_inbounds i = if i then "inbounds" else ""
 
 let print_top oc t = 
   Printf.fprintf oc " [%a: %a]" print_operand (snd t) print_type (fst t)
+;;
 
 let print_ret oc r =
   Printf.fprintf oc "return";
   match r with
     | None -> ()
     | Some t -> Printf.fprintf oc " %a" print_top t
+;;
 
 let print_option printer oc o =
   match o with 
@@ -458,7 +460,7 @@ let print_instruction oc i =
 ;;
 
 let print_basicBlock oc b = 
-  Printf.fprintf oc "%s:\n" b.label;
+  Printf.fprintf oc "%s:\n" b.label; flush stdout;
   List.iter (fun i -> print_instruction oc i; Printf.fprintf oc "\n"; flush stdout) b.instrs  
 
 let print_body oc =
@@ -470,10 +472,7 @@ let print_args oc args =
 open Gc
 
 let print_function oc (f: func) =
-  let stat = stat() in
-  Printf.fprintf oc "free words: %i; free blocks: %i\n" stat.free_words stat.free_blocks; flush stdout;
-
-  Printf.fprintf oc "define %s (%a) {\n%a}" f.fname print_args f.fargs print_body f.fbody 
+  Printf.fprintf oc "define %s (%a) {\n%a}" f.fname print_args f.fargs print_body f.fbody
 
 let print = 
   Gc.set { (Gc.get()) with Gc.verbose = 0x00d };
