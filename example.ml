@@ -5,6 +5,15 @@ exception Test;;
 Printf.printf "Plugin Running\n";;
 flush stdout;;
 
+type cornerbook = {
+  mutable wrap: int;
+  mutable nuw: int;
+  mutable nsw: int;
+  mutable nowrap: int;
+  mutable exact: int;
+  mutable noexact: int
+};;
+
 type instbook = {
   mutable ret: int; 
   mutable br: int;
@@ -30,6 +39,21 @@ type instbook = {
   mutable shuffleVector: int;
   mutable va_arg: int;
   mutable call: int;
+};;
+
+type castbook = {
+  mutable trunc: int; 
+  mutable zext: int;
+  mutable sext: int;
+  mutable fpTrunc: int;
+  mutable fpExt: int;
+  mutable fpToUi: int;
+  mutable fpToSi: int;
+  mutable uiToFp: int;
+  mutable siToFp: int;
+  mutable ptrToInt: int;
+  mutable intToPtr: int;
+  mutable bitCast: int
 };;
 
 let ib = {    
@@ -59,6 +83,78 @@ let ib = {
    call= 0;
 };;
 
+let cb = {
+   trunc= 0; 
+   zext= 0;
+   sext= 0;
+   fpTrunc= 0;
+   fpExt= 0;
+   fpToUi= 0;
+   fpToSi= 0;
+   uiToFp= 0;
+   siToFp= 0;
+   ptrToInt= 0;
+   intToPtr= 0;
+   bitCast= 0
+};;
+
+let cob = {
+   wrap= 0;
+   nuw= 0;
+   nsw= 0;
+   nowrap= 0;
+   exact= 0;
+   noexact= 0
+};;
+
+let reg_wrap w = 
+  match w with 
+    | Wnone -> cob.wrap <- cob.wrap + 1;
+    | Wnsw -> cob.nsw <- cob.nsw + 1;
+    | Wnuw -> cob.nuw <- cob.nuw + 1;
+    | Wboth -> cob.nowrap <- cob.nowrap + 1
+
+let reg_exact e = 
+  if e 
+  then cob.exact <- cob.exact + 1 
+  else cob.noexact <- cob.noexact + 1
+
+let reg_op o = 
+  match o with 
+    | Add x -> reg_wrap x 
+    | FAdd -> ()
+    | Sub x -> reg_wrap x 
+    | FSub -> ()
+    | Mul x -> reg_wrap x 
+    | FMul -> ()
+    | UDiv x -> reg_exact x 
+    | SDiv x -> reg_exact x 
+    | FDiv -> ()
+    | URem -> ()
+    | SRem -> ()
+    | FRem -> ()
+    | Shl x -> reg_wrap x 
+    | LShr x -> reg_exact x 
+    | AShr x -> reg_exact x 
+    | And -> ()
+    | Or -> ()
+    | Xor -> ()
+
+let reg_cb c = 
+  match c with 
+    | Trunc -> cb.trunc <- (+) 1 cb.trunc
+    | Zext -> cb.zext <- (+) 1 cb.zext
+    | Sext -> cb.sext <- (+) 1 cb.sext
+    | FpTrunc -> cb.fpTrunc <- (+) 1 cb.fpTrunc
+    | FpExt -> cb.fpExt <- (+) 1 cb.fpExt
+    | FpToUi -> cb.fpToUi <- (+) 1 cb.fpToUi
+    | FpToSi -> cb.fpToSi <- (+) 1 cb.fpToSi
+    | UiToFp -> cb.uiToFp <- (+) 1 cb.uiToFp
+    | SiToFp -> cb.siToFp <- (+) 1 cb.siToFp
+    | PtrToInt -> cb.ptrToInt <- (+) 1 cb.ptrToInt
+    | IntToPtr -> cb.intToPtr <- (+) 1 cb.intToPtr
+    | BitCast -> cb.bitCast <- (+) 1 cb.bitCast
+      
 let reg_inst i = 
   match i with
     | Ret _ -> ib.ret <- ib.ret + 1 
@@ -68,14 +164,14 @@ let reg_inst i =
     | Invoke _ -> ib.invoke <- ib.invoke + 1 
     | Unwind _ -> ib.unwind <- ib.unwind + 1 
     | Unreachable _ -> ib.unreachable <- ib.unreachable + 1 
-    | BinOp _ -> ib.binOp <- ib.binOp + 1 
+    | BinOp (_,o,_,_,_) -> reg_op o ; ib.binOp <- ib.binOp + 1 
     | Alloca _ -> ib.alloca <- ib.alloca + 1 
     | Load _ -> ib.load <- ib.load + 1 
     | Store _ -> ib.store <- ib.store + 1 
     | GetElementPtr _ -> ib.getElementPtr <- ib.getElementPtr + 1 
     | Icmp _ -> ib.icmp <- ib.icmp + 1 
     | Fcmp _ -> ib.fcmp <- ib.fcmp + 1 
-    | Cast _ -> ib.cast <- ib.cast + 1 
+    | Cast (_,c,_,_) -> reg_cb c ; ib.cast <- ib.cast + 1 
     | Select _ -> ib.select <- ib.select + 1 
     | Phi _ -> ib.phi <- ib.phi + 1 
     | ExtractValue _ -> ib.extractValue <- ib.extractValue + 1 
@@ -116,6 +212,26 @@ let print_report () =
   Printf.printf "shufflevector: %i\n" ib.shuffleVector;
   Printf.printf "va_arg: %i\n" ib.va_arg;
   Printf.printf "call: %i\n" ib.call;
+  Printf.printf "-----------------------\n";
+  Printf.printf "trunc: %i\n" cb.trunc;
+  Printf.printf "zext: %i\n" cb.zext;
+  Printf.printf "sext: %i\n" cb.sext;
+  Printf.printf "fptrunc: %i\n" cb.fpTrunc;
+  Printf.printf "fpext: %i\n" cb.fpExt;
+  Printf.printf "fptoui: %i\n" cb.fpToUi;
+  Printf.printf "fptosi: %i\n" cb.fpToSi;
+  Printf.printf "uitofp: %i\n" cb.uiToFp;
+  Printf.printf "sitofp: %i\n" cb.siToFp;
+  Printf.printf "ptrtoint: %i\n" cb.ptrToInt;
+  Printf.printf "inttoptr: %i\n" cb.intToPtr;
+  Printf.printf "bitcast: %i\n" cb.bitCast;
+  Printf.printf "-----------------------\n";
+  Printf.printf "wrap: %i\n" cob.wrap; 
+  Printf.printf "nsw: %i\n" cob.nsw; 
+  Printf.printf "nuw: %i\n" cob.nuw; 
+  Printf.printf "no wrap: %i\n" cob.nowrap; 
+  Printf.printf "exact: %i\n" cob.exact; 
+  Printf.printf "no exact: %i\n" cob.noexact; 
   Printf.printf "=======================\n"
 
 let f (x : func) = 

@@ -452,6 +452,17 @@ namespace {
     CAMLreturn(v);
   }
   
+  value convert(std::list<std::pair<BasicBlock *,Value *> >::const_iterator P) {
+    CAMLparam0();
+    CAMLlocal1(v);
+
+    const BasicBlock *B = P->first;
+    const Value *V = P->second;
+    v = mkTuple(caml_copy_string(blockNames.get(B).c_str()),convert(V));
+
+    CAMLreturn(v);
+  }
+
 
   value convert(const Instruction *I) {
     CAMLparam0();
@@ -546,21 +557,18 @@ namespace {
       Store_field(inst,2,mkTop(E->getOperand(1)));
       Store_field(inst,3,mkTop(E->getOperand(2)));
     }
-     if (isa<PHINode>(I)) inst = caml_alloc(3,13);
-     // {
-//       const PHINode *N = cast<PHINode>(I);
-//       inst = caml_alloc(3,13);
-//       Store_field(inst,0,caml_copy_string(var.c_str()));
-//       Store_field(inst,1,convert(N->getType()));
-//       std::list<value> l;
-//       for (unsigned i = 0 ; i < N->getNumIncomingValues(); ++i) {
-// 	lab = caml_copy_string(blockNames.get(N->getIncomingBlock(i)).c_str());
-// 	v = convert(N->getIncomingValue(i)); 
-// 	t = mkTuple(lab,v);
-// 	l.push_back(t);
-//       }
-//       Store_field(inst,2,mkList(l));
-//     }
+     if (isa<PHINode>(I)) {
+       const PHINode *N = cast<PHINode>(I);
+       inst = caml_alloc(3,13);
+       Store_field(inst,0,caml_copy_string(var.c_str()));
+       Store_field(inst,1,convert(N->getType()));
+       std::list<std::pair<BasicBlock*,Value*> > l;
+       for (unsigned i = 0 ; i < N->getNumIncomingValues(); ++i) 
+	 l.push_back(std::pair<BasicBlock*,Value*>(N->getIncomingBlock(i),N->getIncomingValue(i)));
+ 
+       lv = convertIT<std::list<std::pair<BasicBlock*,Value*> >::const_iterator>(l.begin(),l.end());
+       Store_field(inst,2,lv);
+     }
     if (isa<CastInst>(I)) {
       const CastInst *C = cast<CastInst>(I);
       inst = caml_alloc(4,10);
