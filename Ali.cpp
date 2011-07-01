@@ -443,6 +443,16 @@ namespace {
     CAMLreturn(u);
   }
 
+  value convert(const unsigned int *i) {
+    CAMLparam0();
+    CAMLlocal1(v);
+
+    v = caml_copy_int32(*i); // CAUTION, not sure what kind of int that should be
+
+    CAMLreturn(v);
+  }
+  
+
   value convert(const Instruction *I) {
     CAMLparam0();
     CAMLlocal2(inst,lv); 
@@ -536,7 +546,8 @@ namespace {
       Store_field(inst,2,mkTop(E->getOperand(1)));
       Store_field(inst,3,mkTop(E->getOperand(2)));
     }
-//     if (isa<PHINode>(I)) {
+     if (isa<PHINode>(I)) inst = caml_alloc(3,13);
+     // {
 //       const PHINode *N = cast<PHINode>(I);
 //       inst = caml_alloc(3,13);
 //       Store_field(inst,0,caml_copy_string(var.c_str()));
@@ -558,9 +569,32 @@ namespace {
       Store_field(inst,2,mkTop(C->getOperand(0)));
       Store_field(inst,3,convert(C->getDestTy()));
     }
-    if (isa<ExtractValueInst>(I)) inst = caml_alloc(4,18);
-    if (isa<InsertValueInst>(I)) inst = caml_alloc(5,19);
+    if (isa<ExtractValueInst>(I)) {
+      const ExtractValueInst *E = cast<ExtractValueInst>(I);
+      inst = caml_alloc(3,18);
+      Store_field(inst,0,caml_copy_string(var.c_str()));
+      Store_field(inst,1,convert(E->getAggregateOperand()));
+      lv = convertIT<ExtractValueInst::idx_iterator>(E->idx_begin(),E->idx_end()); 
+      Store_field(inst,2,lv);
+    }
+    if (isa<InsertValueInst>(I)) {
+      const InsertValueInst *E = cast<InsertValueInst>(I);
+      inst = caml_alloc(4,19);
+      Store_field(inst,0,caml_copy_string(var.c_str()));
+      Store_field(inst,1,convert(E->getAggregateOperand()));
+      Store_field(inst,2,convert(E->getInsertedValueOperand()));
+      lv = convertIT<InsertValueInst::idx_iterator>(E->idx_begin(),E->idx_end());
+      Store_field(inst,3,lv);
+    }
     if (isa<SwitchInst>(I)) inst = caml_alloc(4,2);
+//       { 
+//       const SwitchInst *S = cast<SwitchInst>(I);
+//       inst = caml_alloc(4,2);
+//       Store_field(inst,0,caml_copy_string(var.c_str()));
+//       Store_field(inst,1,mkTop(S->getCondition()));
+//       Store_field(inst,2,caml_copy_string(blockNames.get(S->getDefaultDest())));
+//       Store_field(inst,3,);
+//     }
     if (isa<IndirectBrInst>(I)) inst = caml_alloc(2,3);
     if (isa<InvokeInst>(I)) inst = caml_alloc(8,4);
     if (isa<GetElementPtrInst>(I)) { 
@@ -576,13 +610,15 @@ namespace {
       
       Store_field(inst,3,lv);
     }
-    if (isa<SelectInst>(I)) inst = caml_alloc(5,14);
-    if (isa<VAArgInst>(I)) inst = caml_alloc(1,21);
-    if (isa<IntrinsicInst>(I)) {
-      inst = caml_alloc(1,22);
-      size_t ptr = (size_t) I;
-      Store_field(inst,0,caml_copy_int64(ptr)); // Not portable, big hack! 
+    if (isa<SelectInst>(I)) {
+      const SelectInst *S = cast<SelectInst>(I);
+      inst = caml_alloc(4,14);
+      Store_field(inst,0,caml_copy_string(var.c_str()));
+      Store_field(inst,1,mkTop(S->getCondition()));
+      Store_field(inst,2,mkTop(S->getTrueValue()));
+      Store_field(inst,3,mkTop(S->getFalseValue()));
     }
+    if (isa<VAArgInst>(I)) inst = caml_alloc(1,21);
     if (isa<CallInst>(I))  {
       const CallInst *C = cast<CallInst>(I);
       inst = caml_alloc(8,20);
@@ -597,31 +633,7 @@ namespace {
       Store_field(inst,7,Val_int(0)); // NIY
     }
 
-//     if (isa<ExtractValueInst>(I)) {
-//       const ExtractValueInst *E = cast<ExtractValueInst>(I);
-//       inst = caml_alloc(4,18);
-//       Store_field(inst,0,caml_copy_string(var.c_str()));
-//       Store_field(inst,1,convert(E->getAggregateOperand()));
-//       Store_field(inst,2,);
-//       Store_field(inst,3,);
-//     }
-//     if (isa<InsertValueInst>(I)) {
-//       const InsertValueInst *E = cast<InsertValueInst>(I);
-//       inst = caml_alloc(5,19);
-//       Store_field(inst,0,caml_copy_string(var.c_str()));
-//       Store_field(inst,1,convert(E->getAggregateOperand()));
-//       Store_field(inst,2,convert(E->getInsertedValueOperand()));
-//       Store_field(inst,3,);
-//       Store_field(inst,4,);
-//     }
-//     if (isa<SwitchInst>(I)) {
-//       inst = caml_alloc(4,2);
-//       const SwitchInst *I = cast<SwitchInst>(I);
-//       Store_field(inst,0,convert(I->getCondition()->getType()));
-//       Store_field(inst,1,convert(I->getCondition()));
-//       Store_field(inst,2,);
-//       Store_field(inst,3,);
-//     } 
+
 //     if (isa<IndirectBrInst>(I)) {
 //       inst = caml_alloc(3,3);
 //       const IndirectBrInst *I = cast<IndirectBrInst>(I);
@@ -686,16 +698,16 @@ namespace {
 
     instNames.clear();
     blockNames.clear();
-    errs() << "Function: " << F.getNameStr() << "\n";
-    errs() << "Conversion... ";
+    //errs() << "Function: " << F.getNameStr() << "\n";
+    //errs() << "Conversion... ";
     v = convert(&F);
-    errs() << "OK\n";
-    errs() << "\n\nTransformation... ";
+    //errs() << "OK\n";
+    //errs() << "\n\nTransformation... ";
     w = caml_callback_exn(*caml_named_value("transform"),v); 
-    if (Is_exception_result(w)) 
-      errs() << "An exception occured in the OCaml code.\n" ;
-    else 
-      errs() << "OK\n";
+    // if (Is_exception_result(w)) 
+//       errs() << "An exception occured in the OCaml code.\n" ;
+//     else 
+//       errs() << "OK\n";
 
     CAMLreturnT(bool,false);
   }

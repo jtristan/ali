@@ -184,20 +184,19 @@ type instruction =
   | Alloca of var * typ * (typ * int32) option * alignment option
   | Load of var * volatile * top * alignment option  
   | Store of volatile * top * top * alignment option
-  | GetElelemtPtr of var * inbound * top * top list 
+  | GetElementPtr of var * inbound * top * top list 
   | Cast of var * castop * top * typ
   | Icmp of var * icmpOp * typ * top * top
   | Fcmp of var * fcmpOp * typ * top * top
   | Phi of var * typ * (label * top) list
-  | Select of var * typ * top * top * operand
+  | Select of var * top * top * top 
   | ExtractElement of var * top * index
   | InsertElement of var * top * top * index
   | ShuffleVector of var * top * top * top
-  | ExtractValue of var * top * index * index list
-  | InsertValue of var * top * top * index * index list
+  | ExtractValue of var * top * index list
+  | InsertValue of var * top * top * index list
   | Call of var * tail * calling_convention * attribute list * typ * top * top list * fattribute list
   | Va_arg of string
-  | Intrinsic of intrinsic
    
 type basicBlock = {label: string; instrs: instruction list}
 type code = basicBlock list
@@ -450,7 +449,7 @@ let print_instruction oc i =
     | Alloca (dst,t,_,al) -> Printf.fprintf oc "%s = alloca %a %a" dst print_type t print_align al
     | Load (dst,vol,o,al) -> Printf.fprintf oc "%s = %sload %a %a" dst (string_volatile vol) print_top o print_align al
     | Store (vol,e1,e2,al) -> Printf.fprintf oc "%sstore %a, %a %a" (string_volatile vol) print_top e1 print_top e2 print_align al
-    | GetElelemtPtr (dst,b,e,idx) -> Printf.fprintf oc "%s = getelementptr %s %a %a" dst (string_inbounds b) print_top e (print_list print_top) idx
+    | GetElementPtr (dst,b,e,idx) -> Printf.fprintf oc "%s = getelementptr %s %a %a" dst (string_inbounds b) print_top e (print_list print_top) idx
     | Icmp (dst,c,t,e1,e2) -> Printf.fprintf oc "%s = icmp %a %a %a %a" dst print_icmpOp c print_type t print_top e1 print_top e2
     | Fcmp (dst,c,t,e1,e2) -> Printf.fprintf oc "%s = fcmp %a %a %a %a" dst print_fcmpOp c print_type t print_top e1 print_top e2
     | Cast (dst,op,e,t) -> Printf.printf "%s = %a %a to %a" dst print_castOp op print_top e print_type t 
@@ -463,7 +462,6 @@ let print_instruction oc i =
     | ShuffleVector _ -> Printf.fprintf oc "shufflevector"
     | Va_arg _ -> Printf.fprintf oc "va_arg"
     | Call (dst,_,_,_,retyp,f,args,_) -> Printf.fprintf oc "call %s %a %a (%a)" dst print_type retyp print_top f print_args args
-    | Intrinsic _ -> Printf.fprintf oc "intrinsic"
 ;;
 
 let print_basicBlock oc b = 
