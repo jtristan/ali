@@ -49,7 +49,7 @@ namespace {
       var = out.str();
       m[t] = var; }
     std::string get(T t) { return m[t]; }
-    void clear() { m.clear(); }
+    void clear() { counter = 0; m.clear(); }
     void reg(T t, std::string name) { m[t] = name; } 
   };
 
@@ -125,6 +125,7 @@ namespace {
       typ = caml_alloc(1,2);
       head = Val_int(0);
       current = Val_int(0);
+      //head = convertIT<StructType::element_iterator>(cast<StructType>(T)->element_begin(),cast<StructType>(T)->element_end());
       for (unsigned i = 0; i < cast<StructType>(T)->getNumElements(); ++i) {
 	cell = caml_alloc(2,0);
 	Store_field(cell,0,convert_aux(cast<StructType>(T)->getElementType(i),depth + 1,typeMap));
@@ -591,8 +592,8 @@ namespace {
       Store_field(inst,3,Val_int(0)); // NIY
       Store_field(inst,4,convert(C->getType()));
       Store_field(inst,5,mkTop(C->getCalledValue()));
-      
-      Store_field(inst,6,Val_int(0)); // NIY
+      lv = convertIT<User::const_op_iterator>(C->op_begin(),C->op_end());
+      Store_field(inst,6,lv); 
       Store_field(inst,7,Val_int(0)); // NIY
     }
 

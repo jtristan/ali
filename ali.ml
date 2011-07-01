@@ -177,7 +177,7 @@ type instruction =
   | Br of top option * label * label option
   | Switch of top * label * (top * label) list
   | IndirectBr of top * label list
-  | Invoke of var * calling_convention * attribute * top * top list * fattribute * label * label
+  | Invoke of var * calling_convention * attribute list * top * top list * fattribute list * label * label
   | Unwind
   | Unreachable
   | BinOp of var * bop * typ * top * top
@@ -195,7 +195,7 @@ type instruction =
   | ShuffleVector of var * top * top * top
   | ExtractValue of var * top * index * index list
   | InsertValue of var * top * top * index * index list
-  | Call of var * tail * calling_convention * attribute * typ * top * top list * fattribute
+  | Call of var * tail * calling_convention * attribute list * typ * top * top list * fattribute list
   | Va_arg of string
   | Intrinsic of intrinsic
    
@@ -433,6 +433,10 @@ let print_list printer oc l =
 let print_label oc l =
   Printf.fprintf oc "%s" l
 
+let print_args oc args =
+  flush stdout;
+  List.iter (print_top oc) args
+
 let print_instruction oc i =
   match i with
     | Ret r -> Printf.fprintf oc "ret %a" (print_option print_top) r
@@ -458,8 +462,8 @@ let print_instruction oc i =
     | InsertElement _ -> Printf.fprintf oc "insertelement"
     | ShuffleVector _ -> Printf.fprintf oc "shufflevector"
     | Va_arg _ -> Printf.fprintf oc "va_arg"
-    | Call _ -> Printf.fprintf oc "call"
-    | Intrinsic _ -> Printf.fprintf oc "Intrinsic"
+    | Call (dst,_,_,_,retyp,f,args,_) -> Printf.fprintf oc "call %s %a %a (%a)" dst print_type retyp print_top f print_args args
+    | Intrinsic _ -> Printf.fprintf oc "intrinsic"
 ;;
 
 let print_basicBlock oc b = 
@@ -469,13 +473,13 @@ let print_basicBlock oc b =
 let print_body oc =
   List.iter (print_basicBlock oc) 
 
-let print_args oc args = 
+let print_formal_params oc args = 
   List.iter (fun arg -> Printf.fprintf oc "%s: %a, " arg.nam print_type arg.typ; flush stdout) args
 
 open Gc
 
 let print_function oc (f: func) =
-  Printf.fprintf oc "define %s (%a) {\n%a}" f.fname print_args f.fargs print_body f.fbody
+  Printf.fprintf oc "define %s (%a) {\n%a}" f.fname print_formal_params f.fargs print_body f.fbody
 
 let print = 
   print_function stdout
