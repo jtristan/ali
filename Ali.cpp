@@ -565,9 +565,10 @@ namespace {
        std::list<std::pair<BasicBlock*,Value*> > l;
        for (unsigned i = 0 ; i < N->getNumIncomingValues(); ++i) 
 	 l.push_back(std::pair<BasicBlock*,Value*>(N->getIncomingBlock(i),N->getIncomingValue(i)));
- 
+       
        lv = convertIT<std::list<std::pair<BasicBlock*,Value*> >::const_iterator>(l.begin(),l.end());
        Store_field(inst,2,lv);
+       l.clear();
      }
     if (isa<CastInst>(I)) {
       const CastInst *C = cast<CastInst>(I);
@@ -662,7 +663,8 @@ namespace {
 //       Store_field(inst,7,);
 //     }
 
-     
+    var.clear();
+    
     CAMLreturn(inst);
   }
     
