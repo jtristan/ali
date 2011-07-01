@@ -433,9 +433,18 @@ namespace {
 //     return nl;
 //   }
  
+  value convert(const Use *U) {
+    CAMLparam0();
+    CAMLlocal1(u);
+    
+    u = mkTop(U->get());
+
+    CAMLreturn(u);
+  }
+
   value convert(const Instruction *I) {
     CAMLparam0();
-    CAMLlocal1(inst); // lab v and t should go away
+    CAMLlocal2(inst,lv); 
 
     //errs() << *I ;
     instNames.assign(I);
@@ -553,17 +562,19 @@ namespace {
     if (isa<SwitchInst>(I)) inst = caml_alloc(4,2);
     if (isa<IndirectBrInst>(I)) inst = caml_alloc(2,3);
     if (isa<InvokeInst>(I)) inst = caml_alloc(8,4);
-//     if (isa<GetElementPtrInst>(I)) { 
-//       const GetElementPtrInst *G = cast<GetElementPtrInst>(I);
-//       inst = caml_alloc(4,9);
-//       Store_field(inst,0,caml_copy_string(var.c_str()));
-//       Store_field(inst,1,G->isInBounds()?Val_int(1):Val_int(0));
-//       Store_field(inst,2,mkTop(G->getPointerOperand()));
-//       std::list<value> l;
+    if (isa<GetElementPtrInst>(I)) { 
+      const GetElementPtrInst *G = cast<GetElementPtrInst>(I);
+      inst = caml_alloc(4,9);
+      Store_field(inst,0,caml_copy_string(var.c_str()));
+      Store_field(inst,1,G->isInBounds()?Val_int(1):Val_int(0));
+      Store_field(inst,2,mkTop(G->getPointerOperand()));
+      lv = convertIT<User::const_op_iterator>(G->idx_begin(),G->idx_end());
+      // std::list<value> l;
 //       for (User::const_op_iterator I = G->idx_begin(); I != G->idx_end(); ++I) 
 // 	l.push_back(mkTop(I->get()));
-//       Store_field(inst,3,mkList(l));
-//     }
+      
+      Store_field(inst,3,lv);
+    }
     if (isa<SelectInst>(I)) inst = caml_alloc(5,14);
     if (isa<VAArgInst>(I)) inst = caml_alloc(1,21);
     if (isa<IntrinsicInst>(I)) {

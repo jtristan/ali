@@ -409,6 +409,7 @@ let string_volatile v = if v then "volatile " else ""
 let string_inbounds i = if i then "inbounds" else ""
 
 let print_top oc t = 
+  flush stdout;
   Printf.fprintf oc " [%a: %a]" print_operand (snd t) print_type (fst t)
 ;;
 
@@ -425,7 +426,9 @@ let print_option printer oc o =
     | Some x -> printer oc x
 
 let print_list printer oc l = 
+  flush stdout;
   List.iter (fun x -> Printf.fprintf oc "%a" printer x) l
+;;
 
 let print_label oc l =
   Printf.fprintf oc "%s" l
