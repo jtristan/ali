@@ -29,6 +29,38 @@ type typ =
   | VectorT of typ
   | Rec of int32
 
+type typtyp =
+  | TTVoid
+  | TTFloat
+  | TTDouble
+  | TTX86_FP80
+  | TTFP128
+  | TTPPC_FP128
+  | TTLabel
+  | TTMetadata
+  | TTX86_MMX
+  | TTOpaque
+  | TTIntT of int32 
+  | TTFunctionT of typtyp ref * (typtyp ref) list
+  | TTStructT of (typtyp ref) list 
+  | TTArrayT of typtyp ref
+  | TTPointerT of typtyp ref
+  | TTVectorT of typtyp ref
+
+type tag1 = 
+  | Tvoid
+  | Tfloat
+
+type tag2 = 
+  | Tarray
+  | Tpointer
+
+type t1 = tag1
+and t2 = {tag2: tag2; content: typtyptyp ref}   
+and typtyptyp = 
+  | T1 of t1
+  | T2 of t2
+
 type wrap =
   | Wnone
   | Wnsw
@@ -292,9 +324,9 @@ let rec print_type oc t =
     | ArrayT t -> Printf.fprintf oc "[%a]" print_type t
     | PointerT t -> Printf.fprintf oc "%a*" print_type t
     | VectorT t -> Printf.fprintf oc "<%a>" print_type t
-    | StructT t -> Printf.fprintf oc "struct type NIY"
+    | StructT t -> Printf.fprintf oc "{%a}" (fun oc t -> List.iter (fun x -> print_type oc x; Printf.fprintf oc ";") t) t
     | Opaque -> Printf.fprintf oc "opaque"
-    | FunctionT _ -> Printf.fprintf oc "function type NIY"
+    | FunctionT (r,args) -> Printf.fprintf oc "(%a) -> %a" (fun oc t -> List.iter (fun x -> print_type oc x; Printf.fprintf oc ";") t) args print_type r
     | Rec i -> Printf.fprintf oc "rec %s" (Int32.to_string i) 
 
 let print_constant oc c = 
@@ -493,8 +525,8 @@ let wrap f =
 let register (f : transform) = Callback.register "transform" (wrap f)
 
 let set () = 
-  Gc.set { (Gc.get()) with Gc.minor_heap_size = 100000000 }
+  Gc.set { (Gc.get()) with Gc.minor_heap_size = 1000000000 }
 ;;
 
-let _ = Callback.register "clean" Gc.minor
+let _ = Callback.register "clean" Gc.compact
 let _ = Callback.register "set" set

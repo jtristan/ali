@@ -99,8 +99,9 @@ namespace {
   value convert_aux(const Type *T, int depth, tMap *typeMap) {
     CAMLparam0();
     CAMLlocal5(typ,arg,head,current,cell);
+    CAMLlocal1(tmp);
 
-    //errs() << "Type: " << "\n";
+    errs() << "Type: " << T->getNameStr() << " \n";
     typ = Val_int(0);
     if (typeMap->find(T) == typeMap->end()) 
       (*typeMap)[T] = depth;
@@ -125,10 +126,11 @@ namespace {
       typ = caml_alloc(1,2);
       head = Val_int(0);
       current = Val_int(0);
-      //head = convertIT<StructType::element_iterator>(cast<StructType>(T)->element_begin(),cast<StructType>(T)->element_end());
+      
       for (unsigned i = 0; i < cast<StructType>(T)->getNumElements(); ++i) {
 	cell = caml_alloc(2,0);
-	Store_field(cell,0,convert_aux(cast<StructType>(T)->getElementType(i),depth + 1,typeMap));
+	tmp = convert_aux(cast<StructType>(T)->getElementType(i),depth + 1,typeMap);
+	Store_field(cell,0,tmp);
 	Store_field(cell,1,Val_int(0));
 	if (head == Val_int(0)) head = cell;
 	if (current != Val_int(0)) Store_field(current,1,cell); 
@@ -161,7 +163,9 @@ namespace {
     CAMLlocal1(v);
 
     tMap typeMap;
-    v = Val_int(0);//convert_aux(T,0,&typeMap);
+    //v = Val_int(0);
+    v = convert_aux(T,0,&typeMap);
+    typeMap.clear();
 
     CAMLreturn(v);
   }
@@ -565,7 +569,7 @@ namespace {
        std::list<std::pair<BasicBlock*,Value*> > l;
        for (unsigned i = 0 ; i < N->getNumIncomingValues(); ++i) 
 	 l.push_back(std::pair<BasicBlock*,Value*>(N->getIncomingBlock(i),N->getIncomingValue(i)));
-       
+
        lv = convertIT<std::list<std::pair<BasicBlock*,Value*> >::const_iterator>(l.begin(),l.end());
        Store_field(inst,2,lv);
        l.clear();
@@ -706,19 +710,23 @@ namespace {
     CAMLparam0();
     CAMLlocal2 (v,w);
 
-    instNames.clear();
-    blockNames.clear();
-    //errs() << "Function: " << F.getNameStr() << "\n";
-    //errs() << "Conversion... ";
-    v = convert(&F);
-    //errs() << "OK\n";
-    //errs() << "\n\nTransformation... ";
-    w = caml_callback_exn(*caml_named_value("transform"),v); 
-    // if (Is_exception_result(w)) 
-//       errs() << "An exception occured in the OCaml code.\n" ;
-//     else 
-//       errs() << "OK\n";
+    if (F.getNameStr() != "yy_reduce") {
+      instNames.clear();
+      blockNames.clear();
+      errs() << "Function: " << F.getNameStr() << "\n";
+      //errs() << "Conversion... ";
+      caml_callback(*caml_named_value("set"),Val_int(0));
+      v = convert(&F);
+      //errs() << "OK\n";
+      //errs() << "\n\nTransformation... ";
+      w = caml_callback_exn(*caml_named_value("transform"),v); 
+      // if (Is_exception_result(w)) 
+      //       errs() << "An exception occured in the OCaml code.\n" ;
+      //     else 
+      //       errs() << "OK\n";
+        }
 
+    caml_callback(*caml_named_value("clean"),Val_int(0));
     CAMLreturnT(bool,false);
   }
 
