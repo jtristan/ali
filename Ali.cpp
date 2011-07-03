@@ -101,58 +101,57 @@ namespace {
     CAMLlocal5(typ,arg,head,current,cell);
     CAMLlocal1(tmp);
 
-    errs() << "Type: " << T->getNameStr() << " \n";
     typ = Val_int(0);
-    if (typeMap->find(T) == typeMap->end()) 
+
+    if (typeMap->find(T) != typeMap->end()) {
+      typ = caml_alloc(1,6);
+      Store_field(typ,0,caml_copy_int32((*typeMap)[T]));
+    }
+    else {
       (*typeMap)[T] = depth;
-    else // Recursive type?
-      {
-	typ = caml_alloc(1,6);
-	Store_field(typ,0,caml_copy_int32((*typeMap)[T]));
-	return typ;
+      if (T->isPrimitiveType()) typ = Val_int(T->getTypeID());
+      if (T->isIntegerTy()) {
+	typ = caml_alloc(1,0);
+	int width = cast<IntegerType>(T)->getBitWidth();
+	Store_field(typ,0,caml_copy_int32(width));
       }
-    if (T->isPrimitiveType()) typ = Val_int(T->getTypeID());
-    if (T->isIntegerTy()) {
-      typ = caml_alloc(1,0);
-      int width = cast<IntegerType>(T)->getBitWidth();
-      Store_field(typ,0,caml_copy_int32(width));
-    }
-    if (isa<SequentialType>(T)) {
-      typ = caml_alloc(2,T->getTypeID() - 9); 
-      arg = convert_aux(cast<SequentialType>(T)->getElementType(),depth+1,typeMap);
-      Store_field(typ,0,arg);
-    }
-    if (T->isStructTy()) {
-      typ = caml_alloc(1,2);
-      head = Val_int(0);
-      current = Val_int(0);
-      
-      for (unsigned i = 0; i < cast<StructType>(T)->getNumElements(); ++i) {
-	cell = caml_alloc(2,0);
-	tmp = convert_aux(cast<StructType>(T)->getElementType(i),depth + 1,typeMap);
-	Store_field(cell,0,tmp);
-	Store_field(cell,1,Val_int(0));
-	if (head == Val_int(0)) head = cell;
-	if (current != Val_int(0)) Store_field(current,1,cell); 
-	current = cell;
+      if (isa<SequentialType>(T)) {
+	typ = caml_alloc(2,T->getTypeID() - 9); 
+	arg = convert_aux(cast<SequentialType>(T)->getElementType(),depth+1,typeMap);
+	Store_field(typ,0,arg);
       }
-      Store_field(typ,0,head);
-    }
-    if (T->isOpaqueTy()) typ = Val_int(9);
-    if(T->isFunctionTy()) {
-      typ = caml_alloc(2,1);
-      Store_field(typ,0,convert_aux(cast<FunctionType>(T)->getReturnType(), depth + 1, typeMap));
-      head = Val_int(0);
-      current = Val_int(0);
-      for (unsigned i = 0; i < cast<FunctionType>(T)->getNumParams(); ++i) {
-	cell = caml_alloc(2,0);
-	Store_field(cell,0,convert_aux(cast<FunctionType>(T)->getParamType(i),depth + 1, typeMap));
-	Store_field(cell,1,Val_int(0));
-	if (head == Val_int(0)) head = cell; 
-	if (current != Val_int(0)) Store_field(current,1,cell); 
-	current = cell;
+      if (T->isStructTy()) {
+	typ = caml_alloc(1,2);
+	head = Val_int(0);
+	current = Val_int(0);
+	
+	for (unsigned i = 0; i < cast<StructType>(T)->getNumElements(); ++i) {
+	  cell = caml_alloc(2,0);
+	  tmp = convert_aux(cast<StructType>(T)->getElementType(i),depth + 1,typeMap);
+	  Store_field(cell,0,tmp);
+	  Store_field(cell,1,Val_int(0));
+	  if (head == Val_int(0)) head = cell;
+	  if (current != Val_int(0)) Store_field(current,1,cell); 
+	  current = cell;
+	}
+	Store_field(typ,0,head);
       }
-      Store_field(typ,1,head);
+      if (T->isOpaqueTy()) typ = Val_int(9);
+      if(T->isFunctionTy()) {
+	typ = caml_alloc(2,1);
+	Store_field(typ,0,convert_aux(cast<FunctionType>(T)->getReturnType(), depth + 1, typeMap));
+	head = Val_int(0);
+	current = Val_int(0);
+	for (unsigned i = 0; i < cast<FunctionType>(T)->getNumParams(); ++i) {
+	  cell = caml_alloc(2,0);
+	  Store_field(cell,0,convert_aux(cast<FunctionType>(T)->getParamType(i),depth + 1, typeMap));
+	  Store_field(cell,1,Val_int(0));
+	  if (head == Val_int(0)) head = cell; 
+	  if (current != Val_int(0)) Store_field(current,1,cell); 
+	  current = cell;
+	}
+	Store_field(typ,1,head);
+      }
     }
 
     CAMLreturn(typ);
@@ -163,12 +162,73 @@ namespace {
     CAMLlocal1(v);
 
     tMap typeMap;
-    //v = Val_int(0);
     v = convert_aux(T,0,&typeMap);
     typeMap.clear();
 
     CAMLreturn(v);
   }
+
+//   typedef std::map<const Type *, value> tMap;
+
+//   value convert_aux(const Type *T, tMap typeMap) {
+//     CAMLparam0();
+//     CAMLlocal1(typ);
+    
+//     typ = Val_int(0);
+//     if (typeMap->find(T) != typeMap->end()) 
+//       (*typeMap)[T] = depth;
+//     else // Recursive type?
+//       {
+// 	typ = caml_alloc(1,6);
+// 	Store_field(typ,0,caml_copy_int32((*typeMap)[T]));
+// 	return typ;
+//       }
+//     if (T->isPrimitiveType()) typ = Val_int(T->getTypeID());
+//     if (T->isIntegerTy()) {
+//       typ = caml_alloc(1,0);
+//       int width = cast<IntegerType>(T)->getBitWidth();
+//       Store_field(typ,0,caml_copy_int32(width));
+//     }
+//     if (isa<SequentialType>(T)) {
+//       typ = caml_alloc(2,T->getTypeID() - 9); 
+//       arg = convert_aux(cast<SequentialType>(T)->getElementType(),depth+1,typeMap);
+//       Store_field(typ,0,arg);
+//     }
+//     if (T->isStructTy()) {
+//       typ = caml_alloc(1,2);
+//       head = Val_int(0);
+//       current = Val_int(0);
+      
+//       for (unsigned i = 0; i < cast<StructType>(T)->getNumElements(); ++i) {
+// 	cell = caml_alloc(2,0);
+// 	tmp = convert_aux(cast<StructType>(T)->getElementType(i),depth + 1,typeMap);
+// 	Store_field(cell,0,tmp);
+// 	Store_field(cell,1,Val_int(0));
+// 	if (head == Val_int(0)) head = cell;
+// 	if (current != Val_int(0)) Store_field(current,1,cell); 
+// 	current = cell;
+//       }
+//       Store_field(typ,0,head);
+//     }
+//     if (T->isOpaqueTy()) typ = Val_int(9);
+//     if(T->isFunctionTy()) {
+//       typ = caml_alloc(2,1);
+//       Store_field(typ,0,convert_aux(cast<FunctionType>(T)->getReturnType(), depth + 1, typeMap));
+//       head = Val_int(0);
+//       current = Val_int(0);
+//       for (unsigned i = 0; i < cast<FunctionType>(T)->getNumParams(); ++i) {
+// 	cell = caml_alloc(2,0);
+// 	Store_field(cell,0,convert_aux(cast<FunctionType>(T)->getParamType(i),depth + 1, typeMap));
+// 	Store_field(cell,1,Val_int(0));
+// 	if (head == Val_int(0)) head = cell; 
+// 	if (current != Val_int(0)) Store_field(current,1,cell); 
+// 	current = cell;
+//       }
+//       Store_field(typ,1,head);
+//     }
+
+//     CAMLreturn(typ);
+//   }
 
   value convert(const Argument *A) {
     CAMLparam0();
@@ -203,7 +263,7 @@ namespace {
     if (isa<ConstantAggregateZero>(C)) constant = Val_int(3);
     if (isa<UndefValue>(C)) constant = Val_int(4);
     if (isa<ConstantFP>(C)) {
-      errs() << "Floating Point Constants NYI\n";
+      //errs() << "Floating Point Constants NYI\n";
     }
     
     CAMLreturn(constant);
@@ -710,12 +770,12 @@ namespace {
     CAMLparam0();
     CAMLlocal2 (v,w);
 
-    if (F.getNameStr() != "yy_reduce") {
+    if (F.getNameStr() != "yy_reduceLLLLL") {
       instNames.clear();
       blockNames.clear();
       errs() << "Function: " << F.getNameStr() << "\n";
       //errs() << "Conversion... ";
-      caml_callback(*caml_named_value("set"),Val_int(0));
+      //caml_callback(*caml_named_value("set"),Val_int(0));
       v = convert(&F);
       //errs() << "OK\n";
       //errs() << "\n\nTransformation... ";
@@ -726,7 +786,7 @@ namespace {
       //       errs() << "OK\n";
         }
 
-    caml_callback(*caml_named_value("clean"),Val_int(0));
+    //caml_callback(*caml_named_value("clean"),Val_int(0));
     CAMLreturnT(bool,false);
   }
 

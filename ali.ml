@@ -21,45 +21,45 @@ type typ =
   | Metadata
   | X86_MMX
   | Opaque
-  | IntT of int32 
+  | IntT of int32
   | FunctionT of typ * typ list
-  | StructT of typ list 
+  | StructT of typ list
   | ArrayT of typ
   | PointerT of typ
   | VectorT of typ
   | Rec of int32
 
-type typtyp =
-  | TTVoid
-  | TTFloat
-  | TTDouble
-  | TTX86_FP80
-  | TTFP128
-  | TTPPC_FP128
-  | TTLabel
-  | TTMetadata
-  | TTX86_MMX
-  | TTOpaque
-  | TTIntT of int32 
-  | TTFunctionT of typtyp ref * (typtyp ref) list
-  | TTStructT of (typtyp ref) list 
-  | TTArrayT of typtyp ref
-  | TTPointerT of typtyp ref
-  | TTVectorT of typtyp ref
+(* type typ = *)
+(*   | Void *)
+(*   | Float *)
+(*   | Double *)
+(*   | X86_FP80 *)
+(*   | FP128 *)
+(*   | PPC_FP128 *)
+(*   | Label *)
+(*   | Metadata *)
+(*   | X86_MMX *)
+(*   | Opaque *)
+(*   | IntT of int32  *)
+(*   | FunctionT of typ ref * (typ ref) list *)
+(*   | StructT of (typ ref) list  *)
+(*   | ArrayT of typ ref *)
+(*   | PointerT of typ ref *)
+(*   | VectorT of typ ref *)
 
-type tag1 = 
-  | Tvoid
-  | Tfloat
+(* type tag1 =  *)
+(*   | Tvoid *)
+(*   | Tfloat *)
 
-type tag2 = 
-  | Tarray
-  | Tpointer
+(* type tag2 =  *)
+(*   | Tarray *)
+(*   | Tpointer *)
 
-type t1 = tag1
-and t2 = {tag2: tag2; content: typtyptyp ref}   
-and typtyptyp = 
-  | T1 of t1
-  | T2 of t2
+(* type t1 = tag1 *)
+(* and t2 = {tag2: tag2; content: typtyptyp ref}    *)
+(* and typtyptyp =  *)
+(*   | T1 of t1 *)
+(*   | T2 of t2 *)
 
 type wrap =
   | Wnone
