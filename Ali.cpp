@@ -168,65 +168,64 @@ namespace {
     CAMLreturn(v);
   }
 
-//   typedef std::map<const Type *, value> tMap;
+  //===========EXPERIMENTAL==============
+//    typedef std::map<const Type *, value> shareMap;
 
-//   value convert_aux(const Type *T, tMap typeMap) {
+//   value convert_new(const Type *T, shareMap typeMap) {
 //     CAMLparam0();
 //     CAMLlocal1(typ);
     
 //     typ = Val_int(0);
 //     if (typeMap->find(T) != typeMap->end()) 
-//       (*typeMap)[T] = depth;
-//     else // Recursive type?
-//       {
-// 	typ = caml_alloc(1,6);
-// 	Store_field(typ,0,caml_copy_int32((*typeMap)[T]));
-// 	return typ;
+//       typ = (*typeMap)[T];
+//     else {
+//       if (T->isPrimitiveType()) typ = Val_int(T->getTypeID());
+//       if (T->isIntegerTy()) {
+// 	typ = caml_alloc(1,0);
+// 	int width = cast<IntegerType>(T)->getBitWidth();
+// 	Store_field(typ,0,caml_copy_int32(width));
 //       }
-//     if (T->isPrimitiveType()) typ = Val_int(T->getTypeID());
-//     if (T->isIntegerTy()) {
-//       typ = caml_alloc(1,0);
-//       int width = cast<IntegerType>(T)->getBitWidth();
-//       Store_field(typ,0,caml_copy_int32(width));
-//     }
-//     if (isa<SequentialType>(T)) {
-//       typ = caml_alloc(2,T->getTypeID() - 9); 
-//       arg = convert_aux(cast<SequentialType>(T)->getElementType(),depth+1,typeMap);
-//       Store_field(typ,0,arg);
-//     }
-//     if (T->isStructTy()) {
-//       typ = caml_alloc(1,2);
-//       head = Val_int(0);
-//       current = Val_int(0);
+//       if (isa<SequentialType>(T)) {
+// 	typ = caml_alloc(2,T->getTypeID() - 9); 
+// 	arg = convert_aux(cast<SequentialType>(T)->getElementType(),depth+1,typeMap);
+// 	Store_field(typ,0,arg);
+//       }
+//       if (T->isStructTy()) {
+// 	typ = caml_alloc(1,2);
+// 	head = Val_int(0);
+// 	current = Val_int(0);
       
-//       for (unsigned i = 0; i < cast<StructType>(T)->getNumElements(); ++i) {
-// 	cell = caml_alloc(2,0);
-// 	tmp = convert_aux(cast<StructType>(T)->getElementType(i),depth + 1,typeMap);
-// 	Store_field(cell,0,tmp);
-// 	Store_field(cell,1,Val_int(0));
-// 	if (head == Val_int(0)) head = cell;
-// 	if (current != Val_int(0)) Store_field(current,1,cell); 
-// 	current = cell;
+// 	for (unsigned i = 0; i < cast<StructType>(T)->getNumElements(); ++i) {
+// 	  cell = caml_alloc(2,0);
+// 	  tmp = convert_aux(cast<StructType>(T)->getElementType(i),depth + 1,typeMap);
+// 	  Store_field(cell,0,tmp);
+// 	  Store_field(cell,1,Val_int(0));
+// 	  if (head == Val_int(0)) head = cell;
+// 	  if (current != Val_int(0)) Store_field(current,1,cell); 
+// 	  current = cell;
+// 	}
+// 	Store_field(typ,0,head);
 //       }
-//       Store_field(typ,0,head);
-//     }
-//     if (T->isOpaqueTy()) typ = Val_int(9);
-//     if(T->isFunctionTy()) {
-//       typ = caml_alloc(2,1);
-//       Store_field(typ,0,convert_aux(cast<FunctionType>(T)->getReturnType(), depth + 1, typeMap));
-//       head = Val_int(0);
-//       current = Val_int(0);
-//       for (unsigned i = 0; i < cast<FunctionType>(T)->getNumParams(); ++i) {
-// 	cell = caml_alloc(2,0);
-// 	Store_field(cell,0,convert_aux(cast<FunctionType>(T)->getParamType(i),depth + 1, typeMap));
-// 	Store_field(cell,1,Val_int(0));
-// 	if (head == Val_int(0)) head = cell; 
-// 	if (current != Val_int(0)) Store_field(current,1,cell); 
-// 	current = cell;
+//       if (T->isOpaqueTy()) typ = Val_int(9);
+//       if(T->isFunctionTy()) {
+// 	typ = caml_alloc(2,1);
+// 	Store_field(typ,0,convert_aux(cast<FunctionType>(T)->getReturnType(), depth + 1, typeMap));
+// 	head = Val_int(0);
+// 	current = Val_int(0);
+// 	for (unsigned i = 0; i < cast<FunctionType>(T)->getNumParams(); ++i) {
+// 	  cell = caml_alloc(2,0);
+// 	  Store_field(cell,0,convert_aux(cast<FunctionType>(T)->getParamType(i),depth + 1, typeMap));
+// 	  Store_field(cell,1,Val_int(0));
+// 	  if (head == Val_int(0)) head = cell; 
+// 	  if (current != Val_int(0)) Store_field(current,1,cell); 
+// 	  current = cell;
+// 	}
+// 	Store_field(typ,1,head);
 //       }
-//       Store_field(typ,1,head);
-//     }
+      
+      
 
+//     }
 //     CAMLreturn(typ);
 //   }
 
@@ -543,7 +542,7 @@ namespace {
       const LoadInst *L = cast<LoadInst>(I);
       Store_field(inst,0,caml_copy_string(var.c_str()));
       Store_field(inst,1,L->isVolatile()? Val_int(1):Val_int(0));
-      Store_field(inst,2,mkTop(L->getPointerOperand())); // This one
+      Store_field(inst,2,mkTop(L->getPointerOperand()));
       Store_field(inst,3,mkAlignment(L->getAlignment()));
     }
     if (isa<AllocaInst>(I)) {
@@ -629,7 +628,7 @@ namespace {
        std::list<std::pair<BasicBlock*,Value*> > l;
        for (unsigned i = 0 ; i < N->getNumIncomingValues(); ++i) 
 	 l.push_back(std::pair<BasicBlock*,Value*>(N->getIncomingBlock(i),N->getIncomingValue(i)));
-
+       
        lv = convertIT<std::list<std::pair<BasicBlock*,Value*> >::const_iterator>(l.begin(),l.end());
        Store_field(inst,2,lv);
        l.clear();
@@ -676,11 +675,7 @@ namespace {
       Store_field(inst,0,caml_copy_string(var.c_str()));
       Store_field(inst,1,G->isInBounds()?Val_int(1):Val_int(0));
       Store_field(inst,2,mkTop(G->getPointerOperand()));
-      lv = convertIT<User::const_op_iterator>(G->idx_begin(),G->idx_end());
-      // std::list<value> l;
-//       for (User::const_op_iterator I = G->idx_begin(); I != G->idx_end(); ++I) 
-// 	l.push_back(mkTop(I->get()));
-      
+      lv = convertIT<User::const_op_iterator>(G->idx_begin(),G->idx_end());      
       Store_field(inst,3,lv);
     }
     if (isa<SelectInst>(I)) {
@@ -705,15 +700,13 @@ namespace {
       Store_field(inst,6,lv); 
       Store_field(inst,7,Val_int(0)); // NIY
     }
+    if (isa<IndirectBrInst>(I)) {
+      inst = caml_alloc(2,3);
+      const IndirectBrInst *B = cast<IndirectBrInst>(I);
+      Store_field(inst,0,mkTop(B->getAddress()));
+      Store_field(inst,1,convertIT<>(B->getDestination(0),B->getDestination(0)+B->getNumDestinations()));
+    } // This last store field is wacky!!!
 
-
-//     if (isa<IndirectBrInst>(I)) {
-//       inst = caml_alloc(3,3);
-//       const IndirectBrInst *I = cast<IndirectBrInst>(I);
-//       Store_field(inst,0,);
-//       Store_field(inst,1,);
-//       Store_field(inst,2,);
-//     } 
 //     if (isa<InvokeInst>(I)) {
 //       inst = caml_alloc(8,4);
 //       const InvokeInst *I = cast<InvokeInst>(I);
@@ -738,7 +731,6 @@ namespace {
 
     block = caml_alloc(2,0);
     Store_field(block,0,caml_copy_string(blockNames.get(B).c_str()));
-    //l = convertList<Instruction,BasicBlock::const_iterator>(&B->getInstList());
     l = convertIT<BasicBlock::const_iterator>(B->begin(),B->end());
     Store_field(block,1,l);
 
@@ -752,14 +744,12 @@ namespace {
     f = caml_alloc(12,0);
     s = caml_copy_string(F->getNameStr().c_str());
     Store_field(f,5,s);
-    //args = convertList<Argument,Function::const_arg_iterator>(&F->getArgumentList());
     args = convertIT<Function::const_arg_iterator>(F->arg_begin(),F->arg_end());
     Store_field(f,6,args);
     for (Function::const_iterator I = F->getBasicBlockList().begin(), 
 	   E = F->getBasicBlockList().end(); 
 	 I != E; ++I) 
       blockNames.assign(I); 
-    //body = convertList<BasicBlock,Function::const_iterator>(&F->getBasicBlockList());
     body = convertIT<Function::const_iterator>(F->begin(),F->end());
     Store_field(f,11,body);
     
@@ -773,7 +763,7 @@ namespace {
     if (F.getNameStr() != "yy_reduceLLLLL") {
       instNames.clear();
       blockNames.clear();
-      errs() << "Function: " << F.getNameStr() << "\n";
+      //errs() << "Function: " << F.getNameStr() << "\n";
       //errs() << "Conversion... ";
       //caml_callback(*caml_named_value("set"),Val_int(0));
       v = convert(&F);
