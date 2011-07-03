@@ -235,7 +235,7 @@ let print_report () =
   Printf.printf "=======================\n"
 
 let f (x : func) = 
-  (* count x; print_report();  flush stdout; *) x
+  count x; print_report(); print x; flush stdout; x
   (*print x; flush stdout; x *)
 ;;
 

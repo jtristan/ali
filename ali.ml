@@ -4,6 +4,9 @@ Missing constant expressions;
 Missing cc n calling convention  
 Missing metadata
 Missing inline assembly
+I cannot do blockaddress because I need to have the label for the block so
+   I need to keep around the mapping from blocks to names. 
+Type for arrays is imprecise
 *)
 
 type 'a option = 
@@ -133,6 +136,10 @@ type castop =
   | IntToPtr
   | BitCast
 
+type inbound = bool
+
+type index = int32
+
 type constant =
   | True
   | False
@@ -148,6 +155,7 @@ type constant =
   | Fun of string
   | Undef
   | Blockaddress of string * string
+  | GetElementPtrC of constant * constant list
 
 type var = string
 
@@ -194,13 +202,9 @@ type fattribute =
 
 type intrinsic
 
-type index = int32
-
 type label = string
 
 type top = typ * operand
-
-type inbound = bool
 
 type tail = bool
 
@@ -329,10 +333,28 @@ let rec print_type oc t =
     | FunctionT (r,args) -> Printf.fprintf oc "(%a) -> %a" (fun oc t -> List.iter (fun x -> print_type oc x; Printf.fprintf oc ";") t) args print_type r
     | Rec i -> Printf.fprintf oc "rec %s" (Int32.to_string i) 
 
-let print_constant oc c = 
+let print_list printer oc l = 
+  flush stdout;
+  List.iter (fun x -> Printf.fprintf oc "%a" printer x) l
+;;
+
+let rec print_constant oc c = 
   match c with
+    | True -> Printf.fprintf oc "true"
+    | False -> Printf.fprintf oc "false"
     | I i -> Printf.fprintf oc "%s " (Int64.to_string i)
-    | _ -> Printf.fprintf oc "NYI"
+    | F f -> Printf.fprintf oc "%f " f
+    | Null -> Printf.fprintf oc "null"
+    | StructC _ -> Printf.fprintf oc "Implement struct constant"
+    | ArrayC _ -> Printf.fprintf oc "Implement array constant"
+    | VectorC _ -> Printf.fprintf oc "Implement vector constant"
+    | ZeroInitializer -> Printf.fprintf oc "zeroinitialiser"
+    | MetadataC _ -> Printf.fprintf oc "Implement metadata constant"
+    | Glob s -> Printf.fprintf oc "@%s" s
+    | Fun s -> Printf.fprintf oc "@%s " s
+    | Undef -> Printf.fprintf oc "undef"
+    | Blockaddress (s1,s2) -> Printf.fprintf oc "Implement blockaddress"
+    | GetElementPtrC (c,l) -> Printf.fprintf oc "getelementptr %a %a" print_constant c (print_list print_constant) l
 
 let print_operand oc o = 
   match o with
@@ -441,7 +463,7 @@ let string_inbounds i = if i then "inbounds" else ""
 
 let print_top oc t = 
   flush stdout;
-  Printf.fprintf oc " [%a: %a]" print_operand (snd t) print_type (fst t)
+  Printf.fprintf oc "%a %a"  print_type (fst t) print_operand (snd t)
 ;;
 
 let print_ret oc r =
@@ -456,17 +478,12 @@ let print_option printer oc o =
     | None -> ()
     | Some x -> printer oc x
 
-let print_list printer oc l = 
-  flush stdout;
-  List.iter (fun x -> Printf.fprintf oc "%a" printer x) l
-;;
-
 let print_label oc l =
   Printf.fprintf oc "%s" l
 
 let print_args oc args =
   flush stdout;
-  List.iter (print_top oc) args
+  List.iter (fun x -> Printf.fprintf oc "%a, " print_top x) args
 
 let print_instruction oc i =
   match i with
@@ -478,12 +495,12 @@ let print_instruction oc i =
     | Unwind _ -> Printf.fprintf oc "Unwind"
     | Unreachable _ -> Printf.fprintf oc "Unreachable"
     | BinOp (dst,o,t,e1,e2) -> Printf.fprintf oc "%s = %a %a %a, %a" dst print_bop o print_type t print_top e1 print_top e2
-    | Alloca (dst,t,_,al) -> Printf.fprintf oc "%s = alloca %a %a" dst print_type t print_align al
-    | Load (dst,vol,o,al) -> Printf.fprintf oc "%s = %sload %a %a" dst (string_volatile vol) print_top o print_align al
-    | Store (vol,e1,e2,al) -> Printf.fprintf oc "%sstore %a, %a %a" (string_volatile vol) print_top e1 print_top e2 print_align al
-    | GetElementPtr (dst,b,e,idx) -> Printf.fprintf oc "%s = getelementptr %s %a %a" dst (string_inbounds b) print_top e (print_list print_top) idx
-    | Icmp (dst,c,t,e1,e2) -> Printf.fprintf oc "%s = icmp %a %a %a %a" dst print_icmpOp c print_type t print_top e1 print_top e2
-    | Fcmp (dst,c,t,e1,e2) -> Printf.fprintf oc "%s = fcmp %a %a %a %a" dst print_fcmpOp c print_type t print_top e1 print_top e2
+    | Alloca (dst,t,_,al) -> Printf.fprintf oc "%s = alloca %a%a" dst print_type t print_align al
+    | Load (dst,vol,o,al) -> Printf.fprintf oc "%s = %sload %a%a" dst (string_volatile vol) print_top o print_align al
+    | Store (vol,e1,e2,al) -> Printf.fprintf oc "%sstore %a, %a%a" (string_volatile vol) print_top e1 print_top e2 print_align al
+    | GetElementPtr (dst,b,e,idx) -> Printf.fprintf oc "%s = getelementptr %s %a, %a" dst (string_inbounds b) print_top e (print_list print_top) idx
+    | Icmp (dst,c,_,e1,e2) -> Printf.fprintf oc "%s = icmp %a %a, %a" dst print_icmpOp c  print_top e1 print_top e2
+    | Fcmp (dst,c,_,e1,e2) -> Printf.fprintf oc "%s = fcmp %a %a, %a" dst print_fcmpOp c  print_top e1 print_top e2
     | Cast (dst,op,e,t) -> Printf.printf "%s = %a %a to %a" dst print_castOp op print_top e print_type t 
     | Select _ -> Printf.fprintf oc "select"
     | Phi _ -> Printf.fprintf oc "phi"
@@ -493,7 +510,7 @@ let print_instruction oc i =
     | InsertElement _ -> Printf.fprintf oc "insertelement"
     | ShuffleVector _ -> Printf.fprintf oc "shufflevector"
     | Va_arg _ -> Printf.fprintf oc "va_arg"
-    | Call (dst,_,_,_,retyp,f,args,_) -> Printf.fprintf oc "call %s %a %a (%a)" dst print_type retyp print_top f print_args args
+    | Call (dst,_,_,_,retyp,f,args,_) -> Printf.fprintf oc "%s = call %a %a (%a)" dst print_type retyp print_top f print_args args
 ;;
 
 let print_basicBlock oc b = 

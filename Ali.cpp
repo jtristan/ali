@@ -7,6 +7,7 @@
 #include "llvm/InstrTypes.h"
 #include "llvm/Instructions.h"
 #include "llvm/IntrinsicInst.h"
+#include "llvm/GlobalVariable.h"
 
 #include <map>
 #include <sstream>
@@ -246,9 +247,10 @@ namespace {
     CAMLparam0();
     CAMLlocal1(constant);
 
+    bool ok = false;
     constant = Val_int(0);
-    if (isa<ConstantPointerNull>(C)) constant = Val_int(2);
-    if (isa<ConstantInt>(C)) {
+    if (isa<ConstantPointerNull>(C) && (ok = true)) constant = Val_int(2);
+    if (isa<ConstantInt>(C) && (ok = true)) {
       const ConstantInt *CI = cast<ConstantInt>(C);
       if (CI->getBitWidth() == 1) {
 	if (CI->isZero()) constant = Val_int(1);
@@ -259,12 +261,50 @@ namespace {
 	Store_field(constant,0,caml_copy_int64(CI->getSExtValue()));
       }
     }
-    if (isa<ConstantAggregateZero>(C)) constant = Val_int(3);
-    if (isa<UndefValue>(C)) constant = Val_int(4);
-    if (isa<ConstantFP>(C)) {
-      //errs() << "Floating Point Constants NYI\n";
+    if (isa<ConstantAggregateZero>(C) && (ok = true)) constant = Val_int(3);
+    if (isa<UndefValue>(C) && (ok = true)) constant = Val_int(4);
+    if (isa<ConstantFP>(C) && (ok = true)) {
+      double d = cast<ConstantFP>(C)->getValueAPF().convertToDouble();
+      constant = caml_alloc(1,1);
+      Store_field(constant,0,caml_copy_double(d));
     }
-    
+    if (isa<Function>(C) && (ok = true)) {
+      constant = caml_alloc(1,7);
+      Store_field(constant,0,caml_copy_string(C->getNameStr().c_str()));
+    }
+    if (isa<GlobalVariable>(C) && (ok = true)) {
+      constant = caml_alloc(1,6);
+      Store_field(constant,0,caml_copy_string(C->getNameStr().c_str()));
+    }
+    if (isa<ConstantVector>(C) && (ok = true)) {
+      constant = caml_alloc(1,4);
+      Store_field(constant,0,convertIT<User::const_op_iterator>(C->op_begin(),C->op_end()));
+    }
+    if (isa<ConstantStruct>(C) && (ok = true)) {
+      constant = caml_alloc(1,2);
+      Store_field(constant,0,convertIT<User::const_op_iterator>(C->op_begin(),C->op_end()));
+    }
+    if (isa<ConstantArray>(C) && (ok = true)) {
+      constant = caml_alloc(1,3);
+      Store_field(constant,0,convertIT<User::const_op_iterator>(C->op_begin(),C->op_end()));
+    }
+    if (isa<ConstantExpr>(C)) {
+      switch (cast<ConstantExpr>(C)->getOpcode()) {
+      case Instruction::GetElementPtr: 
+	ok = true;
+	constant = caml_alloc(2,9);
+	const Constant * CO = cast<Constant>(C->getOperand(0));
+	Store_field(constant,0,convert(CO));
+	// I worry about overloading resolution for the following one
+	Store_field(constant,1,convertIT<User::const_op_iterator>(CO->op_begin(),CO->op_end()));
+      }
+    }
+ 
+    if (!ok) { 
+      errs() << "No rule to convert constant:\n" << *C << "\n";
+      errs() << C->getNameStr();
+      exit(1);
+    }
     CAMLreturn(constant);
   }
   
@@ -531,7 +571,7 @@ namespace {
     CAMLparam0();
     CAMLlocal2(inst,lv); 
 
-    //errs() << *I ;
+    errs() << *I << "\n";
     instNames.assign(I);
     std::string var = instNames.get(I);
     inst = Val_int(0);
@@ -696,7 +736,8 @@ namespace {
       Store_field(inst,3,Val_int(0)); // NIY
       Store_field(inst,4,convert(C->getType()));
       Store_field(inst,5,mkTop(C->getCalledValue()));
-      lv = convertIT<User::const_op_iterator>(C->op_begin(),C->op_end());
+      // The -1 that follows is important. The last value in the user array is the function itself.
+      lv = convertIT<User::const_op_iterator>(C->op_begin(),C->op_end()-1);
       Store_field(inst,6,lv); 
       Store_field(inst,7,Val_int(0)); // NIY
     }
@@ -760,7 +801,7 @@ namespace {
     CAMLparam0();
     CAMLlocal2 (v,w);
 
-    if (F.getNameStr() != "yy_reduceLLLLL") {
+    if (F.getNameStr() != "sqlite3_compileoption_used") {
       instNames.clear();
       blockNames.clear();
       //errs() << "Function: " << F.getNameStr() << "\n";
