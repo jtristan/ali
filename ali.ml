@@ -310,7 +310,7 @@ type modul = {
   mlibraries: string list
 }
 
-type transform = func -> func
+type transform = modul -> modul
 
 let rec print_type oc t = 
   let f = fun s -> Printf.fprintf oc "%s" s; flush stdout in 
@@ -528,8 +528,11 @@ open Gc
 let print_function oc (f: func) =
   Printf.fprintf oc "define %s (%a) {\n%a}" f.fname print_formal_params f.fargs print_body f.fbody
 
+let print_module oc (m: modul) = 
+  List.iter (print_function oc) m.mfunctions
+
 let print = 
-  print_function stdout
+  print_module stdout
 
 exception Caml
 let _ = Callback.register_exception "camlexn" (Caml)

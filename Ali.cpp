@@ -8,6 +8,7 @@
 #include "llvm/Instructions.h"
 #include "llvm/IntrinsicInst.h"
 #include "llvm/GlobalVariable.h"
+#include "llvm/Module.h"
 
 #include <map>
 #include <sstream>
@@ -25,15 +26,15 @@ using namespace llvm;
 
 namespace {
 
-  class Ali : public FunctionPass {
+  class Ali : public ModulePass {
   public:
     static char ID;
-    Ali() : FunctionPass(ID) {
+    Ali() : ModulePass(ID) {
       char* t[1] = {"crap"}; 
       caml_startup(t);         
     }
     
-    virtual bool runOnFunction(Function &F);
+    virtual bool runOnModule(Module &F);
     
   };
 
@@ -94,6 +95,8 @@ namespace {
     
     CAMLreturn(l);
   }  
+
+  bool stop_mode = false;
 
   typedef std::map<const Type *,int> tMap;
 
@@ -300,7 +303,7 @@ namespace {
       }
     }
  
-    if (!ok) { 
+    if (!ok && stop_mode) { 
       errs() << "No rule to convert constant:\n" << *C << "\n";
       errs() << C->getNameStr();
       exit(1);
@@ -571,7 +574,7 @@ namespace {
     CAMLparam0();
     CAMLlocal2(inst,lv); 
 
-    errs() << *I << "\n";
+    //errs() << *I << "\n";
     instNames.assign(I);
     std::string var = instNames.get(I);
     inst = Val_int(0);
@@ -782,6 +785,9 @@ namespace {
     CAMLparam0();
     CAMLlocal4(f,s,args,body);
 
+    errs() << "Converting " << F->getNameStr() << "...";
+    instNames.clear();
+    blockNames.clear();
     f = caml_alloc(12,0);
     s = caml_copy_string(F->getNameStr().c_str());
     Store_field(f,5,s);
@@ -793,31 +799,52 @@ namespace {
       blockNames.assign(I); 
     body = convertIT<Function::const_iterator>(F->begin(),F->end());
     Store_field(f,11,body);
-    
+    errs() << "OK\n";
+
     CAMLreturn(f);    
   }
 
-  bool Ali::runOnFunction(Function &F) {
+//   bool Ali::runOnFunction(Function &F) {
+//     CAMLparam0();
+//     CAMLlocal2 (v,w);
+
+//     if (F.getNameStr() != "sqlite3_compileoption_used") {
+//       instNames.clear();
+//       blockNames.clear();
+//       //errs() << "Function: " << F.getNameStr() << "\n";
+//       //errs() << "Conversion... ";
+//       //caml_callback(*caml_named_value("set"),Val_int(0));
+//       v = convert(&F);
+//       //errs() << "OK\n";
+//       //errs() << "\n\nTransformation... ";
+//       w = caml_callback_exn(*caml_named_value("transform"),v); 
+//       // if (Is_exception_result(w)) 
+//       //       errs() << "An exception occured in the OCaml code.\n" ;
+//       //     else 
+//       //       errs() << "OK\n";
+//         }
+
+//     //caml_callback(*caml_named_value("clean"),Val_int(0));
+//     CAMLreturnT(bool,false);
+//   }
+
+  value convert(const Module *M) {
     CAMLparam0();
-    CAMLlocal2 (v,w);
+    CAMLlocal2(mod,v);
 
-    if (F.getNameStr() != "sqlite3_compileoption_used") {
-      instNames.clear();
-      blockNames.clear();
-      //errs() << "Function: " << F.getNameStr() << "\n";
-      //errs() << "Conversion... ";
-      //caml_callback(*caml_named_value("set"),Val_int(0));
-      v = convert(&F);
-      //errs() << "OK\n";
-      //errs() << "\n\nTransformation... ";
-      w = caml_callback_exn(*caml_named_value("transform"),v); 
-      // if (Is_exception_result(w)) 
-      //       errs() << "An exception occured in the OCaml code.\n" ;
-      //     else 
-      //       errs() << "OK\n";
-        }
+    mod = caml_alloc(6,0);
+    v = convertIT<Module::const_iterator>(M->begin(),M->end());
+    Store_field(mod,3,v);
 
-    //caml_callback(*caml_named_value("clean"),Val_int(0));
+    CAMLreturn(v);
+  }
+
+  bool Ali::runOnModule(Module &M) {
+    CAMLparam0();
+    CAMLlocal1(v);
+
+    v = convert(&M);
+
     CAMLreturnT(bool,false);
   }
 

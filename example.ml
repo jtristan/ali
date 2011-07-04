@@ -234,8 +234,8 @@ let print_report () =
   Printf.printf "no exact: %i\n" cob.noexact; 
   Printf.printf "=======================\n"
 
-let f (x : func) = 
-  count x; print_report(); print x; flush stdout; x
+let f (x : modul) = 
+  (* count x; print_report(); *) print x; flush stdout; x
   (*print x; flush stdout; x *)
 ;;
 
