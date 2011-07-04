@@ -31,6 +31,7 @@ type typ =
   | PointerT of typ
   | VectorT of typ
   | Rec of int32
+  | Named of string
 
 (* type typ = *)
 (*   | Void *)
@@ -332,6 +333,7 @@ let rec print_type oc t =
     | Opaque -> Printf.fprintf oc "opaque"
     | FunctionT (r,args) -> Printf.fprintf oc "(%a) -> %a" (fun oc t -> List.iter (fun x -> print_type oc x; Printf.fprintf oc ";") t) args print_type r
     | Rec i -> Printf.fprintf oc "rec %s" (Int32.to_string i) 
+    | Named s -> Printf.fprintf oc "%s" s
 
 let print_list printer oc l = 
   flush stdout;
@@ -526,9 +528,12 @@ let print_formal_params oc args =
 open Gc
 
 let print_function oc (f: func) =
+  Printf.fprintf oc "printing function\n"; flush stdout;
   Printf.fprintf oc "define %s (%a) {\n%a}" f.fname print_formal_params f.fargs print_body f.fbody
 
 let print_module oc (m: modul) = 
+  Printf.fprintf oc "Printing module\n"; flush stdout;
+  Printf.fprintf oc "Module %s" m.midentifier; flush stdout;
   List.iter (print_function oc) m.mfunctions
 
 let print = 

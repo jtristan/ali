@@ -100,6 +100,8 @@ namespace {
 
   typedef std::map<const Type *,int> tMap;
 
+  const Module * Maccess;
+
   value convert_aux(const Type *T, int depth, tMap *typeMap) {
     CAMLparam0();
     CAMLlocal5(typ,arg,head,current,cell);
@@ -107,57 +109,63 @@ namespace {
 
     typ = Val_int(0);
 
-    if (typeMap->find(T) != typeMap->end()) {
-      typ = caml_alloc(1,6);
-      Store_field(typ,0,caml_copy_int32((*typeMap)[T]));
+    if (Maccess->getTypeName(T) != "") {
+      typ = caml_alloc(1,7);
+      Store_field(typ,0,caml_copy_string(Maccess->getTypeName(T).c_str()));
     }
     else {
-      (*typeMap)[T] = depth;
-      if (T->isPrimitiveType()) typ = Val_int(T->getTypeID());
-      if (T->isIntegerTy()) {
-	typ = caml_alloc(1,0);
-	int width = cast<IntegerType>(T)->getBitWidth();
-	Store_field(typ,0,caml_copy_int32(width));
+      if (typeMap->find(T) != typeMap->end()) {
+	typ = caml_alloc(1,6);
+	Store_field(typ,0,caml_copy_int32((*typeMap)[T]));
       }
-      if (isa<SequentialType>(T)) {
-	typ = caml_alloc(2,T->getTypeID() - 9); 
-	arg = convert_aux(cast<SequentialType>(T)->getElementType(),depth+1,typeMap);
-	Store_field(typ,0,arg);
-      }
-      if (T->isStructTy()) {
-	typ = caml_alloc(1,2);
-	head = Val_int(0);
-	current = Val_int(0);
-	
-	for (unsigned i = 0; i < cast<StructType>(T)->getNumElements(); ++i) {
-	  cell = caml_alloc(2,0);
-	  tmp = convert_aux(cast<StructType>(T)->getElementType(i),depth + 1,typeMap);
-	  Store_field(cell,0,tmp);
-	  Store_field(cell,1,Val_int(0));
-	  if (head == Val_int(0)) head = cell;
-	  if (current != Val_int(0)) Store_field(current,1,cell); 
-	  current = cell;
+      else {
+	(*typeMap)[T] = depth;
+	if (T->isPrimitiveType()) typ = Val_int(T->getTypeID());
+	if (T->isIntegerTy()) {
+	  typ = caml_alloc(1,0);
+	  int width = cast<IntegerType>(T)->getBitWidth();
+	  Store_field(typ,0,caml_copy_int32(width));
 	}
-	Store_field(typ,0,head);
-      }
-      if (T->isOpaqueTy()) typ = Val_int(9);
-      if(T->isFunctionTy()) {
-	typ = caml_alloc(2,1);
-	Store_field(typ,0,convert_aux(cast<FunctionType>(T)->getReturnType(), depth + 1, typeMap));
-	head = Val_int(0);
-	current = Val_int(0);
-	for (unsigned i = 0; i < cast<FunctionType>(T)->getNumParams(); ++i) {
-	  cell = caml_alloc(2,0);
-	  Store_field(cell,0,convert_aux(cast<FunctionType>(T)->getParamType(i),depth + 1, typeMap));
-	  Store_field(cell,1,Val_int(0));
-	  if (head == Val_int(0)) head = cell; 
-	  if (current != Val_int(0)) Store_field(current,1,cell); 
-	  current = cell;
+	if (isa<SequentialType>(T)) {
+	  typ = caml_alloc(2,T->getTypeID() - 9); 
+	  arg = convert_aux(cast<SequentialType>(T)->getElementType(),depth+1,typeMap);
+	  Store_field(typ,0,arg);
 	}
-	Store_field(typ,1,head);
+	if (T->isStructTy()) {
+	  typ = caml_alloc(1,2);
+	  head = Val_int(0);
+	  current = Val_int(0);
+	  
+	  for (unsigned i = 0; i < cast<StructType>(T)->getNumElements(); ++i) {
+	    cell = caml_alloc(2,0);
+	    tmp = convert_aux(cast<StructType>(T)->getElementType(i),depth + 1,typeMap);
+	    Store_field(cell,0,tmp);
+	    Store_field(cell,1,Val_int(0));
+	    if (head == Val_int(0)) head = cell;
+	    if (current != Val_int(0)) Store_field(current,1,cell); 
+	    current = cell;
+	  }
+	  Store_field(typ,0,head);
+      }
+	if (T->isOpaqueTy()) typ = Val_int(9);
+	if(T->isFunctionTy()) {
+	  typ = caml_alloc(2,1);
+	  Store_field(typ,0,convert_aux(cast<FunctionType>(T)->getReturnType(), depth + 1, typeMap));
+	  head = Val_int(0);
+	  current = Val_int(0);
+	  for (unsigned i = 0; i < cast<FunctionType>(T)->getNumParams(); ++i) {
+	    cell = caml_alloc(2,0);
+	    Store_field(cell,0,convert_aux(cast<FunctionType>(T)->getParamType(i),depth + 1, typeMap));
+	    Store_field(cell,1,Val_int(0));
+	    if (head == Val_int(0)) head = cell; 
+	    if (current != Val_int(0)) Store_field(current,1,cell); 
+	    current = cell;
+	  }
+	  Store_field(typ,1,head);
+	}
       }
     }
-
+    
     CAMLreturn(typ);
   }
 
@@ -800,50 +808,33 @@ namespace {
     body = convertIT<Function::const_iterator>(F->begin(),F->end());
     Store_field(f,11,body);
     errs() << "OK\n";
+    
 
     CAMLreturn(f);    
   }
-
-//   bool Ali::runOnFunction(Function &F) {
-//     CAMLparam0();
-//     CAMLlocal2 (v,w);
-
-//     if (F.getNameStr() != "sqlite3_compileoption_used") {
-//       instNames.clear();
-//       blockNames.clear();
-//       //errs() << "Function: " << F.getNameStr() << "\n";
-//       //errs() << "Conversion... ";
-//       //caml_callback(*caml_named_value("set"),Val_int(0));
-//       v = convert(&F);
-//       //errs() << "OK\n";
-//       //errs() << "\n\nTransformation... ";
-//       w = caml_callback_exn(*caml_named_value("transform"),v); 
-//       // if (Is_exception_result(w)) 
-//       //       errs() << "An exception occured in the OCaml code.\n" ;
-//       //     else 
-//       //       errs() << "OK\n";
-//         }
-
-//     //caml_callback(*caml_named_value("clean"),Val_int(0));
-//     CAMLreturnT(bool,false);
-//   }
-
+  
   value convert(const Module *M) {
     CAMLparam0();
-    CAMLlocal2(mod,v);
-
-    mod = caml_alloc(6,0);
-    v = convertIT<Module::const_iterator>(M->begin(),M->end());
-    Store_field(mod,3,v);
-
-    CAMLreturn(v);
+    CAMLlocal2(module,v);
+    
+    module = caml_alloc(6,0);
+    Store_field(module,0,caml_copy_string(M->getModuleIdentifier().c_str()));
+    v = convertIT<Module::const_iterator>(M->begin(),M->end()); 
+    Store_field(module,3,v);
+    
+    CAMLreturn(module);
   }
 
   bool Ali::runOnModule(Module &M) {
     CAMLparam0();
-    CAMLlocal1(v);
+    CAMLlocal2(v,w);
 
+    Maccess = &M;
     v = convert(&M);
+    errs() << "Transformation\n" ;
+    w = caml_callback_exn(*caml_named_value("transform"),v); 
+    if (Is_exception_result(w)) 
+      errs() << "An exception occured in the OCaml code.\n" ;
 
     CAMLreturnT(bool,false);
   }
