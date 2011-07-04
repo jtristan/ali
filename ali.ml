@@ -33,38 +33,6 @@ type typ =
   | Rec of int32
   | Named of string
 
-(* type typ = *)
-(*   | Void *)
-(*   | Float *)
-(*   | Double *)
-(*   | X86_FP80 *)
-(*   | FP128 *)
-(*   | PPC_FP128 *)
-(*   | Label *)
-(*   | Metadata *)
-(*   | X86_MMX *)
-(*   | Opaque *)
-(*   | IntT of int32  *)
-(*   | FunctionT of typ ref * (typ ref) list *)
-(*   | StructT of (typ ref) list  *)
-(*   | ArrayT of typ ref *)
-(*   | PointerT of typ ref *)
-(*   | VectorT of typ ref *)
-
-(* type tag1 =  *)
-(*   | Tvoid *)
-(*   | Tfloat *)
-
-(* type tag2 =  *)
-(*   | Tarray *)
-(*   | Tpointer *)
-
-(* type t1 = tag1 *)
-(* and t2 = {tag2: tag2; content: typtyptyp ref}    *)
-(* and typtyptyp =  *)
-(*   | T1 of t1 *)
-(*   | T2 of t2 *)
-
 type wrap =
   | Wnone
   | Wnsw
@@ -302,13 +270,19 @@ type global = {
   gsection: string option
 }
 
+type namedtype = {
+  tname: string;
+  ttype: typ
+} 
+    
 type modul = {
   midentifier: string;
   mtargetlayout: string option;
   mglobals: global list;
   mfunctions: func list;
   malias: alias list;
-  mlibraries: string list
+  mlibraries: string list;
+  mtypenames: namedtype list
 }
 
 type transform = modul -> modul
@@ -329,9 +303,9 @@ let rec print_type oc t =
     | ArrayT t -> Printf.fprintf oc "[%a]" print_type t
     | PointerT t -> Printf.fprintf oc "%a*" print_type t
     | VectorT t -> Printf.fprintf oc "<%a>" print_type t
-    | StructT t -> Printf.fprintf oc "{%a}" (fun oc t -> List.iter (fun x -> print_type oc x; Printf.fprintf oc ";") t) t
+    | StructT t -> Printf.fprintf oc "{%a}" (fun oc t -> List.iter (fun x -> print_type oc x; Printf.fprintf oc ", ") t) t
     | Opaque -> Printf.fprintf oc "opaque"
-    | FunctionT (r,args) -> Printf.fprintf oc "(%a) -> %a" (fun oc t -> List.iter (fun x -> print_type oc x; Printf.fprintf oc ";") t) args print_type r
+    | FunctionT (r,args) -> Printf.fprintf oc "%a (%a)" print_type r (fun oc t -> List.iter (fun x -> print_type oc x; Printf.fprintf oc ";") t) args 
     | Rec i -> Printf.fprintf oc "rec %s" (Int32.to_string i) 
     | Named s -> Printf.fprintf oc "%s" s
 
@@ -531,10 +505,14 @@ let print_function oc (f: func) =
   Printf.fprintf oc "printing function\n"; flush stdout;
   Printf.fprintf oc "define %s (%a) {\n%a}" f.fname print_formal_params f.fargs print_body f.fbody
 
+let print_named_type oc nt = 
+  Printf.fprintf oc "%s = type %a\n" nt.tname print_type nt.ttype; flush stdout  
+
 let print_module oc (m: modul) = 
   Printf.fprintf oc "Printing module\n"; flush stdout;
-  Printf.fprintf oc "Module %s" m.midentifier; flush stdout;
-  List.iter (print_function oc) m.mfunctions
+  Printf.fprintf oc "Module %s\n" m.midentifier; flush stdout;
+  List.iter (print_named_type oc) m.mtypenames; flush stdout
+  (* List.iter (print_function oc) m.mfunctions *)
 
 let print = 
   print_module stdout

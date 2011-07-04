@@ -9,6 +9,7 @@
 #include "llvm/IntrinsicInst.h"
 #include "llvm/GlobalVariable.h"
 #include "llvm/Module.h"
+#include "llvm/TypeSymbolTable.h"
 
 #include <map>
 #include <sstream>
@@ -102,6 +103,10 @@ namespace {
 
   const Module * Maccess;
 
+  // This global variable is used to properly compute the named types
+  // Eventually, it must be removed
+  std::string converted = "";
+
   value convert_aux(const Type *T, int depth, tMap *typeMap) {
     CAMLparam0();
     CAMLlocal5(typ,arg,head,current,cell);
@@ -109,17 +114,23 @@ namespace {
 
     typ = Val_int(0);
 
-    if (Maccess->getTypeName(T) != "") {
+    if (Maccess->getTypeName(T) != "" && Maccess->getTypeName(T) != converted) {
       typ = caml_alloc(1,7);
       Store_field(typ,0,caml_copy_string(Maccess->getTypeName(T).c_str()));
     }
     else {
-      if (typeMap->find(T) != typeMap->end()) {
-	typ = caml_alloc(1,6);
-	Store_field(typ,0,caml_copy_int32((*typeMap)[T]));
+      // TRICKY
+      if (typeMap->find(T) != typeMap->end() && (*typeMap)[T] != -1) {
+	if (Maccess->getTypeName(T) == "") {
+	  typ = caml_alloc(1,6);
+	  Store_field(typ,0,caml_copy_int32((*typeMap)[T]));
+	}
+	else { //type refering to itself, but not trivially
+	  typ = caml_alloc(1,7);
+	  Store_field(typ,0,caml_copy_string(Maccess->getTypeName(T).c_str()));
+	}
       }
       else {
-	(*typeMap)[T] = depth;
 	if (T->isPrimitiveType()) typ = Val_int(T->getTypeID());
 	if (T->isIntegerTy()) {
 	  typ = caml_alloc(1,0);
@@ -127,11 +138,14 @@ namespace {
 	  Store_field(typ,0,caml_copy_int32(width));
 	}
 	if (isa<SequentialType>(T)) {
+	  (*typeMap)[T] = depth;
 	  typ = caml_alloc(2,T->getTypeID() - 9); 
 	  arg = convert_aux(cast<SequentialType>(T)->getElementType(),depth+1,typeMap);
 	  Store_field(typ,0,arg);
+	  (*typeMap)[T] = -1;
 	}
 	if (T->isStructTy()) {
+	  (*typeMap)[T] = depth;
 	  typ = caml_alloc(1,2);
 	  head = Val_int(0);
 	  current = Val_int(0);
@@ -146,9 +160,11 @@ namespace {
 	    current = cell;
 	  }
 	  Store_field(typ,0,head);
-      }
+	  (*typeMap)[T] = -1;
+	}
 	if (T->isOpaqueTy()) typ = Val_int(9);
 	if(T->isFunctionTy()) {
+	  (*typeMap)[T] = depth;
 	  typ = caml_alloc(2,1);
 	  Store_field(typ,0,convert_aux(cast<FunctionType>(T)->getReturnType(), depth + 1, typeMap));
 	  head = Val_int(0);
@@ -162,9 +178,11 @@ namespace {
 	    current = cell;
 	  }
 	  Store_field(typ,1,head);
+	  (*typeMap)[T] = -1;
 	}
       }
     }
+  
     
     CAMLreturn(typ);
   }
@@ -179,67 +197,6 @@ namespace {
 
     CAMLreturn(v);
   }
-
-  //===========EXPERIMENTAL==============
-//    typedef std::map<const Type *, value> shareMap;
-
-//   value convert_new(const Type *T, shareMap typeMap) {
-//     CAMLparam0();
-//     CAMLlocal1(typ);
-    
-//     typ = Val_int(0);
-//     if (typeMap->find(T) != typeMap->end()) 
-//       typ = (*typeMap)[T];
-//     else {
-//       if (T->isPrimitiveType()) typ = Val_int(T->getTypeID());
-//       if (T->isIntegerTy()) {
-// 	typ = caml_alloc(1,0);
-// 	int width = cast<IntegerType>(T)->getBitWidth();
-// 	Store_field(typ,0,caml_copy_int32(width));
-//       }
-//       if (isa<SequentialType>(T)) {
-// 	typ = caml_alloc(2,T->getTypeID() - 9); 
-// 	arg = convert_aux(cast<SequentialType>(T)->getElementType(),depth+1,typeMap);
-// 	Store_field(typ,0,arg);
-//       }
-//       if (T->isStructTy()) {
-// 	typ = caml_alloc(1,2);
-// 	head = Val_int(0);
-// 	current = Val_int(0);
-      
-// 	for (unsigned i = 0; i < cast<StructType>(T)->getNumElements(); ++i) {
-// 	  cell = caml_alloc(2,0);
-// 	  tmp = convert_aux(cast<StructType>(T)->getElementType(i),depth + 1,typeMap);
-// 	  Store_field(cell,0,tmp);
-// 	  Store_field(cell,1,Val_int(0));
-// 	  if (head == Val_int(0)) head = cell;
-// 	  if (current != Val_int(0)) Store_field(current,1,cell); 
-// 	  current = cell;
-// 	}
-// 	Store_field(typ,0,head);
-//       }
-//       if (T->isOpaqueTy()) typ = Val_int(9);
-//       if(T->isFunctionTy()) {
-// 	typ = caml_alloc(2,1);
-// 	Store_field(typ,0,convert_aux(cast<FunctionType>(T)->getReturnType(), depth + 1, typeMap));
-// 	head = Val_int(0);
-// 	current = Val_int(0);
-// 	for (unsigned i = 0; i < cast<FunctionType>(T)->getNumParams(); ++i) {
-// 	  cell = caml_alloc(2,0);
-// 	  Store_field(cell,0,convert_aux(cast<FunctionType>(T)->getParamType(i),depth + 1, typeMap));
-// 	  Store_field(cell,1,Val_int(0));
-// 	  if (head == Val_int(0)) head = cell; 
-// 	  if (current != Val_int(0)) Store_field(current,1,cell); 
-// 	  current = cell;
-// 	}
-// 	Store_field(typ,1,head);
-//       }
-      
-      
-
-//     }
-//     CAMLreturn(typ);
-//   }
 
   value convert(const Argument *A) {
     CAMLparam0();
@@ -813,15 +770,29 @@ namespace {
     CAMLreturn(f);    
   }
   
+  value convert(TypeSymbolTable::const_iterator TI) {
+    CAMLparam0();
+    CAMLlocal1(entry);
+
+    entry = caml_alloc(2,0);
+    Store_field(entry,0,caml_copy_string(TI->first.c_str()));
+    // Communicating the name of the named type being computed to convert through 
+    // the global variable
+    converted = TI->first;
+    Store_field(entry,1,convert(TI->second));
+
+    CAMLreturn(entry);
+  }
+
   value convert(const Module *M) {
     CAMLparam0();
     CAMLlocal2(module,v);
     
-    module = caml_alloc(6,0);
+    module = caml_alloc(7,0);
     Store_field(module,0,caml_copy_string(M->getModuleIdentifier().c_str()));
     v = convertIT<Module::const_iterator>(M->begin(),M->end()); 
     Store_field(module,3,v);
-    
+    Store_field(module,6,convertIT<TypeSymbolTable::const_iterator>(M->getTypeSymbolTable().begin(),M->getTypeSymbolTable().end()));
     CAMLreturn(module);
   }
 
