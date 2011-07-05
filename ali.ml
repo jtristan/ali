@@ -265,9 +265,10 @@ type global = {
   gvisibility: visibility option;
   glinkage: linkage option;
   gtyp: typ;
-  gconst: constant;
+  ginit: constant option;
   gthread_local: bool;
-  gsection: string option
+  gsection: string option;
+  gconstant: bool
 }
 
 type namedtype = {
@@ -508,10 +509,14 @@ let print_function oc (f: func) =
 let print_named_type oc nt = 
   Printf.fprintf oc "%s = type %a\n" nt.tname print_type nt.ttype; flush stdout  
 
+let print_global oc g = 
+  Printf.fprintf oc "@%s = %a \n" g.gname (print_option print_constant) g.ginit; flush stdout
+
 let print_module oc (m: modul) = 
   Printf.fprintf oc "Printing module\n"; flush stdout;
   Printf.fprintf oc "Module %s\n" m.midentifier; flush stdout;
-  List.iter (print_named_type oc) m.mtypenames; flush stdout
+  List.iter (print_named_type oc) m.mtypenames; flush stdout;
+  List.iter (print_global oc) m.mglobals; flush stdout
   (* List.iter (print_function oc) m.mfunctions *)
 
 let print = 

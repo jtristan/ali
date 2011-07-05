@@ -784,6 +784,24 @@ namespace {
     CAMLreturn(entry);
   }
 
+  value convert(const GlobalVariable *GV) {
+    CAMLparam0();
+    CAMLlocal2(global,ini);
+
+    global = caml_alloc(9,0);
+    Store_field(global,0,caml_copy_string(GV->getNameStr().c_str()));
+    Store_field(global,6,GV->isThreadLocal()? Val_int(1): Val_int(0));
+    Store_field(global,8,GV->isConstant()? Val_int(1):Val_int(0));
+    if (GV->hasInitializer()) {
+      ini = caml_alloc(1,0);
+      Store_field(ini,0,convert(GV->getInitializer()));
+    }
+    else ini = Val_int(0);
+    Store_field(global,5,ini);
+
+    CAMLreturn(global);
+  }
+
   value convert(const Module *M) {
     CAMLparam0();
     CAMLlocal2(module,v);
@@ -791,8 +809,9 @@ namespace {
     module = caml_alloc(7,0);
     Store_field(module,0,caml_copy_string(M->getModuleIdentifier().c_str()));
     v = convertIT<Module::const_iterator>(M->begin(),M->end()); 
+    Store_field(module,2,convertIT<Module::const_global_iterator>(M->global_begin(),M->global_end()));
     Store_field(module,3,v);
-    Store_field(module,6,convertIT<TypeSymbolTable::const_iterator>(M->getTypeSymbolTable().begin(),M->getTypeSymbolTable().end()));
+    Store_field(module,6,convertIT<TypeSymbolTable::const_iterator>(M->getTypeSymbolTable().begin(),M->getTypeSymbolTable().end()));   
     CAMLreturn(module);
   }
 
