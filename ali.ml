@@ -293,6 +293,13 @@ type modul = {
 
 type transform = modul -> modul
 
+let rec print_list printer oc l = 
+  match l with
+    | [] -> ()
+    | x :: [] -> Printf.fprintf oc " %a " printer x
+    | x :: l -> Printf.fprintf oc " %a," printer x; print_list printer oc l
+;;
+
 let rec print_type oc t = 
   flush stdout;
   let f = fun s -> Printf.fprintf oc "%s" s; flush stdout in 
@@ -310,16 +317,11 @@ let rec print_type oc t =
     | ArrayT (i,t) -> Printf.fprintf oc "[%s x %a]" (Int32.to_string i) print_type t
     | PointerT t -> Printf.fprintf oc "%a*" print_type t
     | VectorT t -> Printf.fprintf oc "<%a>" print_type t
-    | StructT t -> Printf.fprintf oc "{%a}" (fun oc t -> List.iter (fun x -> print_type oc x; Printf.fprintf oc ", ") t) t
+    | StructT t -> Printf.fprintf oc "{%a}" (print_list print_type) t 
     | Opaque -> Printf.fprintf oc "opaque"
-    | FunctionT (r,args) -> Printf.fprintf oc "%a (%a)" print_type r (fun oc t -> List.iter (fun x -> print_type oc x; Printf.fprintf oc ";") t) args 
+    | FunctionT (r,args) -> Printf.fprintf oc "%a (%a)" print_type r (print_list print_type) args
     | Rec i -> Printf.fprintf oc "rec %s" (Int32.to_string i) 
-    | Named s -> Printf.fprintf oc "%s" s
-
-let print_list printer s oc l = 
-  flush stdout;
-  List.iter (fun x -> Printf.fprintf oc "%a %s" printer x s) l
-;;
+    | Named s -> Printf.fprintf oc "%s" ("%"^s)
 
 let print_castOp oc o = 
   let s = 
@@ -347,8 +349,8 @@ let rec print_constant oc c =
     | I i -> Printf.fprintf oc "%s " (Int64.to_string i)
     | F f -> Printf.fprintf oc "%f " f
     | Null -> Printf.fprintf oc "null"
-    | StructC s -> Printf.fprintf oc "{%a}" (print_list print_constant ";") s
-    | ArrayC a -> Printf.fprintf oc "[%a]" (print_list print_constant ";") a
+    | StructC s -> Printf.fprintf oc "{%a}" (print_list print_constant) s
+    | ArrayC a -> Printf.fprintf oc "[%a]" (print_list print_constant) a
     | VectorC _ -> Printf.fprintf oc "Implement vector constant"
     | ZeroInitializer -> Printf.fprintf oc "zeroinitialiser"
     | MetadataC _ -> Printf.fprintf oc "Implement metadata constant"
@@ -356,7 +358,7 @@ let rec print_constant oc c =
     | Fun s -> Printf.fprintf oc "@%s " s
     | Undef -> Printf.fprintf oc "undef"
     | Blockaddress (s1,s2) -> Printf.fprintf oc "Implement blockaddress"
-    | GetElementPtrC (c,l) -> Printf.fprintf oc "getelementptr %a %a" print_constant c (print_list print_constant "") l 
+    | GetElementPtrC (c,l) -> Printf.fprintf oc "getelementptr %a %a" print_constant c (print_list print_constant) l 
     | CastC (c,tsrc,o,tdst) -> Printf.fprintf oc "cast" 
 
 let print_operand oc o = 
@@ -473,6 +475,7 @@ let print_args oc args =
   List.iter (fun x -> Printf.fprintf oc "%a, " print_top x) args
 
 let print_instruction oc i =
+  Printf.fprintf oc " "; flush stdout;
   match i with
     | Ret r -> Printf.fprintf oc "ret %a" (print_option print_top) r
     | Br (cond,l1,l2) -> Printf.fprintf oc "br %a %s %a" (print_option print_top) cond l1 (print_option print_label) l2  
@@ -485,7 +488,7 @@ let print_instruction oc i =
     | Alloca (dst,t,_,al) -> Printf.fprintf oc "%s = alloca %a%a" dst print_type t print_align al
     | Load (dst,vol,o,al) -> Printf.fprintf oc "%s = %sload %a%a" dst (string_volatile vol) print_top o print_align al
     | Store (vol,e1,e2,al) -> Printf.fprintf oc "%sstore %a, %a%a" (string_volatile vol) print_top e1 print_top e2 print_align al
-    | GetElementPtr (dst,b,e,idx) -> Printf.fprintf oc "%s = getelementptr %s %a, %a" dst (string_inbounds b) print_top e (print_list print_top "") idx
+    | GetElementPtr (dst,b,e,idx) -> Printf.fprintf oc "%s = getelementptr %s %a, %a" dst (string_inbounds b) print_top e (print_list print_top) idx
     | Icmp (dst,c,_,e1,e2) -> Printf.fprintf oc "%s = icmp %a %a, %a" dst print_icmpOp c  print_top e1 print_top e2
     | Fcmp (dst,c,_,e1,e2) -> Printf.fprintf oc "%s = fcmp %a %a, %a" dst print_fcmpOp c  print_top e1 print_top e2
     | Cast (dst,op,e,t) -> Printf.printf "%s = %a %a to %a" dst print_castOp op print_top e print_type t 
@@ -507,15 +510,23 @@ let print_basicBlock oc b =
 
 let print_body oc =
   List.iter (print_basicBlock oc) 
+;;
+
+let print_arg oc arg = 
+  flush stdout; 
+  Printf.fprintf oc "%a %s" print_type arg.typ arg.nam
+;;
 
 let print_formal_params oc args = 
-  List.iter (fun arg -> Printf.fprintf oc "%s: %a, " arg.nam print_type arg.typ; flush stdout) args
+  flush stdout;
+  (print_list print_arg) oc args 
+;;
 
 open Gc
 
 let print_function oc (f: func) =
-  Printf.fprintf oc "printing function\n"; flush stdout;
-  Printf.fprintf oc "define %s (%a) {\n%a}" f.fname print_formal_params f.fargs print_body f.fbody
+  flush stdout;
+  Printf.fprintf oc "define @%s (%a) {\n%a}\n" f.fname print_formal_params f.fargs print_body f.fbody
 
 let print_named_type oc nt = 
   Printf.fprintf oc "%s = type %a\n" nt.tname print_type nt.ttype; flush stdout  
