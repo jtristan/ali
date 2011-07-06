@@ -6,7 +6,10 @@ Missing metadata
 Missing inline assembly
 I cannot do blockaddress because I need to have the label for the block so
    I need to keep around the mapping from blocks to names. 
-Type for arrays is imprecise
+Improve variable naming
+Module name and target layouts
+linkage and visibity
+alias 
 *)
 
 type 'a option = 
@@ -279,7 +282,8 @@ type namedtype = {
     
 type modul = {
   midentifier: string;
-  mtargetlayout: string option;
+  mdatalayout: string;
+  mtargettriple: string;
   mglobals: global list;
   mfunctions: func list;
   malias: alias list;
@@ -497,8 +501,9 @@ let print_instruction oc i =
 ;;
 
 let print_basicBlock oc b = 
-  Printf.fprintf oc "%s:\n" b.label; flush stdout;
-  List.iter (fun i -> print_instruction oc i; Printf.fprintf oc "\n"; flush stdout) b.instrs  
+  Printf.fprintf oc "; <label>:%s\n" b.label; flush stdout;
+  List.iter (fun i -> print_instruction oc i; Printf.fprintf oc "\n"; flush stdout) b.instrs;
+  Printf.fprintf oc "\n"
 
 let print_body oc =
   List.iter (print_basicBlock oc) 
@@ -543,11 +548,12 @@ let print_global oc g =
   flush stdout
 
 let print_module oc (m: modul) = 
-  Printf.fprintf oc "Printing module\n"; flush stdout;
-  Printf.fprintf oc "Module %s\n" m.midentifier; flush stdout ;
+  Printf.fprintf oc "; ModuleID = '%s'\n" m.midentifier; flush stdout;
+  Printf.fprintf oc "\"target datalayout = %s\"\n" m.mdatalayout; flush stdout;
+  Printf.fprintf oc "\"target triple = %s\"\n\n" m.mtargettriple; flush stdout;
   List.iter (print_named_type oc) m.mtypenames; flush stdout ;
-  List.iter (print_global oc) m.mglobals; flush stdout 
-  (* List.iter (print_function oc) m.mfunctions *)
+  List.iter (print_global oc) m.mglobals; flush stdout; 
+  List.iter (print_function oc) m.mfunctions 
 
 let print = 
   print_module stdout

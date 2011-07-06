@@ -2,9 +2,6 @@ open Ali;;
 
 exception Test;;
 
-Printf.printf "Plugin Running\n";;
-flush stdout;;
-
 type cornerbook = {
   mutable wrap: int;
   mutable nuw: int;

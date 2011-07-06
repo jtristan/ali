@@ -537,20 +537,6 @@ namespace {
 
     CAMLreturn(tuple);
   }
-
-//   value mkList(std::list<value> l) {
-//     value nl = Val_int(0);
-//     value tmp = Val_int(0);
-//     for (std::list<value>::iterator I = l.begin(); I != l.end(); ++I) {
-//       value cell = caml_alloc(2,0);
-//       Store_field(cell,0,*I);
-//       Store_field(cell,1,Val_int(0));
-//       if (nl == Val_int(0)) nl = cell;
-//       if (tmp != Val_int(0)) Store_field(tmp,1,cell); 
-//       tmp = cell;
-//     }
-//     return nl;
-//   }
  
   value convert(const Use *U) {
     CAMLparam0();
@@ -856,10 +842,12 @@ namespace {
     
     module = caml_alloc(7,0);
     Store_field(module,0,caml_copy_string(M->getModuleIdentifier().c_str()));    
-    Store_field(module,2,convertIT<Module::const_global_iterator>(M->global_begin(),M->global_end()));
+    Store_field(module,1,caml_copy_string(M->getDataLayout().c_str()));
+    Store_field(module,2,caml_copy_string(M->getTargetTriple().c_str()));
+    Store_field(module,3,convertIT<Module::const_global_iterator>(M->global_begin(),M->global_end()));
     v = convertIT<Module::const_iterator>(M->begin(),M->end()); 
-    Store_field(module,3,v);
-    Store_field(module,6,convertIT<TypeSymbolTable::const_iterator>(M->getTypeSymbolTable().begin(),M->getTypeSymbolTable().end()));   
+    Store_field(module,4,v);
+    Store_field(module,7,convertIT<TypeSymbolTable::const_iterator>(M->getTypeSymbolTable().begin(),M->getTypeSymbolTable().end()));   
     CAMLreturn(module);
   }
 
