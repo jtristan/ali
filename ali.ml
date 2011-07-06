@@ -27,7 +27,7 @@ type typ =
   | IntT of int32
   | FunctionT of typ * typ list
   | StructT of typ list
-  | ArrayT of typ
+  | ArrayT of int32 * typ
   | PointerT of typ
   | VectorT of typ
   | Rec of int32
@@ -125,6 +125,7 @@ type constant =
   | Undef
   | Blockaddress of string * string
   | GetElementPtrC of constant * constant list
+  | CastC of castop * typ * constant * typ
 
 type var = string
 
@@ -289,6 +290,7 @@ type modul = {
 type transform = modul -> modul
 
 let rec print_type oc t = 
+  flush stdout;
   let f = fun s -> Printf.fprintf oc "%s" s; flush stdout in 
   match t with
     | Void -> f "void"
@@ -301,7 +303,7 @@ let rec print_type oc t =
     | Label -> f "label"
     | Metadata -> f "Metadata"
     | IntT width -> f ("i"^Int32.to_string width) 
-    | ArrayT t -> Printf.fprintf oc "[%a]" print_type t
+    | ArrayT (i,t) -> Printf.fprintf oc "[%s x %a]" (Int32.to_string i) print_type t
     | PointerT t -> Printf.fprintf oc "%a*" print_type t
     | VectorT t -> Printf.fprintf oc "<%a>" print_type t
     | StructT t -> Printf.fprintf oc "{%a}" (fun oc t -> List.iter (fun x -> print_type oc x; Printf.fprintf oc ", ") t) t
@@ -310,20 +312,39 @@ let rec print_type oc t =
     | Rec i -> Printf.fprintf oc "rec %s" (Int32.to_string i) 
     | Named s -> Printf.fprintf oc "%s" s
 
-let print_list printer oc l = 
+let print_list printer s oc l = 
   flush stdout;
-  List.iter (fun x -> Printf.fprintf oc "%a" printer x) l
+  List.iter (fun x -> Printf.fprintf oc "%a %s" printer x s) l
 ;;
 
+let print_castOp oc o = 
+  let s = 
+    match o with
+      | Trunc -> "trunc"
+      | Zext -> "zext"
+      | Sext -> "sext"
+      | FpTrunc -> "fptruc"
+      | FpExt -> "fpext"
+      | FpToUi -> "fptoui"
+      | FpToSi -> "fptosi"
+      | UiToFp -> "uitofp"
+      | SiToFp -> "sitofp"
+      | PtrToInt -> "ptrtotint"
+      | IntToPtr -> "inttoptr"
+      | BitCast -> "bitcast"
+  in 
+  Printf.fprintf oc "%s" s
+
 let rec print_constant oc c = 
+  flush stdout;
   match c with
     | True -> Printf.fprintf oc "true"
     | False -> Printf.fprintf oc "false"
     | I i -> Printf.fprintf oc "%s " (Int64.to_string i)
     | F f -> Printf.fprintf oc "%f " f
     | Null -> Printf.fprintf oc "null"
-    | StructC _ -> Printf.fprintf oc "Implement struct constant"
-    | ArrayC _ -> Printf.fprintf oc "Implement array constant"
+    | StructC s -> Printf.fprintf oc "{%a}" (print_list print_constant ";") s
+    | ArrayC a -> Printf.fprintf oc "[%a]" (print_list print_constant ";") a
     | VectorC _ -> Printf.fprintf oc "Implement vector constant"
     | ZeroInitializer -> Printf.fprintf oc "zeroinitialiser"
     | MetadataC _ -> Printf.fprintf oc "Implement metadata constant"
@@ -331,7 +352,8 @@ let rec print_constant oc c =
     | Fun s -> Printf.fprintf oc "@%s " s
     | Undef -> Printf.fprintf oc "undef"
     | Blockaddress (s1,s2) -> Printf.fprintf oc "Implement blockaddress"
-    | GetElementPtrC (c,l) -> Printf.fprintf oc "getelementptr %a %a" print_constant c (print_list print_constant) l
+    | GetElementPtrC (c,l) -> Printf.fprintf oc "getelementptr %a %a" print_constant c (print_list print_constant "") l 
+    | CastC (c,tsrc,o,tdst) -> Printf.fprintf oc "cast" 
 
 let print_operand oc o = 
   match o with
@@ -411,23 +433,7 @@ let print_fcmpOp oc o =
   in
   Printf.fprintf oc "%s" s
 
-let print_castOp oc o = 
-  let s = 
-    match o with
-      | Trunc -> "trunc"
-      | Zext -> "zext"
-      | Sext -> "sext"
-      | FpTrunc -> "fptruc"
-      | FpExt -> "fpext"
-      | FpToUi -> "fptoui"
-      | FpToSi -> "fptosi"
-      | UiToFp -> "uitofp"
-      | SiToFp -> "sitofp"
-      | PtrToInt -> "ptrtotint"
-      | IntToPtr -> "inttoptr"
-      | BitCast -> "bitcast"
-  in 
-  Printf.fprintf oc "%s" s
+
 
 let print_align oc a = 
   match a with
@@ -475,7 +481,7 @@ let print_instruction oc i =
     | Alloca (dst,t,_,al) -> Printf.fprintf oc "%s = alloca %a%a" dst print_type t print_align al
     | Load (dst,vol,o,al) -> Printf.fprintf oc "%s = %sload %a%a" dst (string_volatile vol) print_top o print_align al
     | Store (vol,e1,e2,al) -> Printf.fprintf oc "%sstore %a, %a%a" (string_volatile vol) print_top e1 print_top e2 print_align al
-    | GetElementPtr (dst,b,e,idx) -> Printf.fprintf oc "%s = getelementptr %s %a, %a" dst (string_inbounds b) print_top e (print_list print_top) idx
+    | GetElementPtr (dst,b,e,idx) -> Printf.fprintf oc "%s = getelementptr %s %a, %a" dst (string_inbounds b) print_top e (print_list print_top "") idx
     | Icmp (dst,c,_,e1,e2) -> Printf.fprintf oc "%s = icmp %a %a, %a" dst print_icmpOp c  print_top e1 print_top e2
     | Fcmp (dst,c,_,e1,e2) -> Printf.fprintf oc "%s = fcmp %a %a, %a" dst print_fcmpOp c  print_top e1 print_top e2
     | Cast (dst,op,e,t) -> Printf.printf "%s = %a %a to %a" dst print_castOp op print_top e print_type t 
@@ -509,14 +515,38 @@ let print_function oc (f: func) =
 let print_named_type oc nt = 
   Printf.fprintf oc "%s = type %a\n" nt.tname print_type nt.ttype; flush stdout  
 
+let is_string t = 
+  match t with
+    | ArrayT (_,IntT i) -> Int32.to_int i = 8
+    | _ -> false
+
+let itc i = 
+  flush stdout;
+  match i with
+    | I i -> char_of_int (Int64.to_int i)
+    | _ -> failwith "false assmption for itc\n"
+
+let print_constant_as_string oc l = 
+  match l with 
+    | Some (ArrayC l) -> List.iter (fun x -> Printf.fprintf oc "%c" (itc x)) l
+    | _ -> failwith "print_constant_as_string false assumption\n"
+
 let print_global oc g = 
-  Printf.fprintf oc "@%s = %a \n" g.gname (print_option print_constant) g.ginit; flush stdout
+  Printf.fprintf oc "@%s = %s %a %a \n" 
+    g.gname 
+    (if g.gconstant then "constant" else "global") 
+    print_type g.gtyp 
+    (fun oc init -> if is_string g.gtyp 
+     then (print_option print_constant) oc init (* (print_constant_as_string oc init) *)
+     else (print_option print_constant) oc init
+    ) g.ginit; 
+  flush stdout
 
 let print_module oc (m: modul) = 
   Printf.fprintf oc "Printing module\n"; flush stdout;
-  Printf.fprintf oc "Module %s\n" m.midentifier; flush stdout;
-  List.iter (print_named_type oc) m.mtypenames; flush stdout;
-  List.iter (print_global oc) m.mglobals; flush stdout
+  Printf.fprintf oc "Module %s\n" m.midentifier; flush stdout ;
+  List.iter (print_named_type oc) m.mtypenames; flush stdout ;
+  List.iter (print_global oc) m.mglobals; flush stdout 
   (* List.iter (print_function oc) m.mfunctions *)
 
 let print = 
@@ -538,3 +568,4 @@ let set () =
 
 let _ = Callback.register "clean" Gc.compact
 let _ = Callback.register "set" set
+

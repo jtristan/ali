@@ -97,7 +97,7 @@ namespace {
     CAMLreturn(l);
   }  
 
-  bool stop_mode = false;
+  bool stop_mode = true;
 
   typedef std::map<const Type *,int> tMap;
 
@@ -137,11 +137,19 @@ namespace {
 	  int width = cast<IntegerType>(T)->getBitWidth();
 	  Store_field(typ,0,caml_copy_int32(width));
 	}
-	if (isa<SequentialType>(T)) {
+	if (isa<SequentialType>(T) && !isa<ArrayType>(T)) {
+	  (*typeMap)[T] = depth;
+	  typ = caml_alloc(1,T->getTypeID() - 9); 
+	  arg = convert_aux(cast<SequentialType>(T)->getElementType(),depth+1,typeMap);
+	  Store_field(typ,0,arg);
+	  (*typeMap)[T] = -1;
+	}
+	if (isa<ArrayType>(T)) {
 	  (*typeMap)[T] = depth;
 	  typ = caml_alloc(2,T->getTypeID() - 9); 
 	  arg = convert_aux(cast<SequentialType>(T)->getElementType(),depth+1,typeMap);
-	  Store_field(typ,0,arg);
+	  Store_field(typ,0,caml_copy_int32(cast<ArrayType>(T)->getNumElements()));
+	  Store_field(typ,1,arg);
 	  (*typeMap)[T] = -1;
 	}
 	if (T->isStructTy()) {
@@ -211,6 +219,18 @@ namespace {
     CAMLreturn(arg);
   }
 
+  value convert(const Constant * C);
+
+  value convert(std::list<const Constant *>::const_iterator P) {
+    CAMLparam0();
+    CAMLlocal1(v);
+
+    const Constant * C = *P;
+    v = convert(C);
+
+    CAMLreturn(v);
+  }
+
   value convert(const Constant *C) {
     CAMLparam0();
     CAMLlocal1(constant);
@@ -246,24 +266,51 @@ namespace {
     }
     if (isa<ConstantVector>(C) && (ok = true)) {
       constant = caml_alloc(1,4);
-      Store_field(constant,0,convertIT<User::const_op_iterator>(C->op_begin(),C->op_end()));
+      std::list<const Constant *> l;
+      for (unsigned i = 0; i < C->getNumOperands(); ++i) {
+	l.push_back(cast<Constant>(C->getOperand(i)));
+      }
+      
+      Store_field(constant,0,convertIT<std::list<const Constant *>::const_iterator>(l.begin(),l.end()));
+      l.clear();
     }
     if (isa<ConstantStruct>(C) && (ok = true)) {
       constant = caml_alloc(1,2);
-      Store_field(constant,0,convertIT<User::const_op_iterator>(C->op_begin(),C->op_end()));
+      std::list<const Constant *> l;
+      for (unsigned i = 0; i < C->getNumOperands(); ++i) {
+	l.push_back(cast<Constant>(C->getOperand(i)));
+      }
+      
+      Store_field(constant,0,convertIT<std::list<const Constant *>::const_iterator>(l.begin(),l.end()));
+      l.clear();
     }
     if (isa<ConstantArray>(C) && (ok = true)) {
       constant = caml_alloc(1,3);
-      Store_field(constant,0,convertIT<User::const_op_iterator>(C->op_begin(),C->op_end()));
+      std::list<const Constant *> l;
+      for (unsigned i = 0; i < C->getNumOperands(); ++i) {
+	l.push_back(cast<Constant>(C->getOperand(i)));
+      }
+      
+      Store_field(constant,0,convertIT<std::list<const Constant *>::const_iterator>(l.begin(),l.end()));
+      l.clear();
     }
     if (isa<ConstantExpr>(C)) {
-      switch (cast<ConstantExpr>(C)->getOpcode()) {
+      const ConstantExpr *CO = cast<ConstantExpr>(C);
+      if (CO->isCast()) {
+	ok = true;
+	constant = caml_alloc(4,10);
+	Store_field(constant,0,Val_int(CO->getOpcode() - 30));
+	Store_field(constant,1,convert(CO->getOperand(0)->getType()));
+	Store_field(constant,2,convert(CO->getOperand(0)));
+	Store_field(constant,3,convert(CO->getType())); 
+      }
+      switch (CO->getOpcode()) {
       case Instruction::GetElementPtr: 
 	ok = true;
 	constant = caml_alloc(2,9);
 	const Constant * CO = cast<Constant>(C->getOperand(0));
 	Store_field(constant,0,convert(CO));
-	// I worry about overloading resolution for the following one
+	// BOGUS
 	Store_field(constant,1,convertIT<User::const_op_iterator>(CO->op_begin(),CO->op_end()));
       }
     }
@@ -798,6 +845,7 @@ namespace {
     }
     else ini = Val_int(0);
     Store_field(global,5,ini);
+    Store_field(global,4,convert(GV->getType()->getElementType()));
 
     CAMLreturn(global);
   }
@@ -807,9 +855,9 @@ namespace {
     CAMLlocal2(module,v);
     
     module = caml_alloc(7,0);
-    Store_field(module,0,caml_copy_string(M->getModuleIdentifier().c_str()));
-    v = convertIT<Module::const_iterator>(M->begin(),M->end()); 
+    Store_field(module,0,caml_copy_string(M->getModuleIdentifier().c_str()));    
     Store_field(module,2,convertIT<Module::const_global_iterator>(M->global_begin(),M->global_end()));
+    v = convertIT<Module::const_iterator>(M->begin(),M->end()); 
     Store_field(module,3,v);
     Store_field(module,6,convertIT<TypeSymbolTable::const_iterator>(M->getTypeSymbolTable().begin(),M->getTypeSymbolTable().end()));   
     CAMLreturn(module);
