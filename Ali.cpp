@@ -804,13 +804,70 @@ namespace {
     CAMLreturn(block);
   }
 
+  int id_linkage(GlobalValue::LinkageTypes l) {
+    int id = 0;
+
+    switch (l) {
+    case GlobalValue::PrivateLinkage: id = 0; break;
+    case GlobalValue::LinkerPrivateLinkage: id = 1; break;
+    case GlobalValue::LinkerPrivateWeakLinkage: id = 2; break;
+    case GlobalValue::LinkerPrivateWeakDefAutoLinkage: id = 3; break;
+    case GlobalValue::InternalLinkage: id = 4; break;
+    case GlobalValue::AvailableExternallyLinkage: id = 5; break;
+    case GlobalValue::LinkOnceAnyLinkage: id = 6; break;
+    case GlobalValue::WeakAnyLinkage: id = 7; break;
+    case GlobalValue::CommonLinkage: id = 8; break;
+    case GlobalValue::AppendingLinkage: id = 9; break;
+    case GlobalValue::ExternalWeakLinkage: id = 10; break;
+    case GlobalValue::LinkOnceODRLinkage: id = 11; break;
+    case GlobalValue::WeakODRLinkage: id = 12; break;
+    case GlobalValue::ExternalLinkage: id = 13; break;
+    case GlobalValue::DLLImportLinkage: id = 14; break;
+    case GlobalValue::DLLExportLinkage: id = 15; break;
+    default: check(true,"linkage"); break;
+    }
+
+    return id;
+  }   
+
+  int id_visibility(GlobalValue::VisibilityTypes v) {
+    int id = 0;
+
+    switch (v) {
+    case GlobalValue::DefaultVisibility: id = 0; break;
+    case GlobalValue::HiddenVisibility: id = 1; break;
+    case GlobalValue::ProtectedVisibility: id = 2; break;
+    default: check(true,"visibility"); break;
+    }
+    
+    return id;
+  }
+
+  // I need to choose whether alignment should have an option type or not...
+  value convert(const GlobalValue *GV) {
+    CAMLparam0();
+    CAMLlocal1(v);
+
+    v = caml_alloc(4,0);
+    // linkage
+    Store_field(v,0,Val_int(id_linkage(GV->getLinkage())));
+    // visibility
+    Store_field(v,1,Val_int(id_visibility(GV->getVisibility())));
+    // alignment
+    Store_field(v,2,caml_copy_int32(GV->getAlignment()));
+    // section
+    Store_field(v,3,caml_copy_string(GV->getSection().c_str()));
+
+    CAMLreturn(v);
+  }
+  
   // Conversion of a function to a value of type 'func'
   value convert (const Function *F) {
     CAMLparam0();
     CAMLlocal1(f);
 
     errs() << "Converting " << F->getNameStr() << "...";
-    f = caml_alloc(12,0);
+    f = caml_alloc(9,0);
     instNames.clear();
 
     // Assign names to blocks
@@ -819,11 +876,11 @@ namespace {
       blockNames.assign(I); 
 
     // Function name
-    Store_field(f,5,caml_copy_string(F->getNameStr().c_str()));
+    Store_field(f,0,caml_copy_string(F->getNameStr().c_str()));
     // Function arguments
-    Store_field(f,6,convertIT<Function::const_arg_iterator>(F->arg_begin(),F->arg_end()));
+    Store_field(f,4,convertIT<Function::const_arg_iterator>(F->arg_begin(),F->arg_end()));
     // Function body
-    Store_field(f,11,convertIT<Function::const_iterator>(F->begin(),F->end()));
+    Store_field(f,7,convertIT<Function::const_iterator>(F->begin(),F->end()));
 
     errs() << "OK\n";
     CAMLreturn(f);    
@@ -849,23 +906,21 @@ namespace {
   // Conversion of a global variable to a value of type 'global'
   value convert(const GlobalVariable *GV) {
     CAMLparam0();
-    CAMLlocal2(global,ini);
+    CAMLlocal1(global);
 
-    global = caml_alloc(9,0);
+    global = caml_alloc(6,0);
     // Global variable identifier
     Store_field(global,0,caml_copy_string(GV->getNameStr().c_str()));
-    // TODO alignment
-    // TODO visibility
-    // TODO linkage
     // Global variable type
-    Store_field(global,4,convert(GV->getType()->getElementType()));
+    Store_field(global,1,convert(GV->getType()->getElementType()));
     // Initializer, if any
-    Store_field(global,5,GV->hasInitializer()? mkSome(convert(GV->getInitializer())):Val_int(0));
+    Store_field(global,2,GV->hasInitializer()? mkSome(convert(GV->getInitializer())):Val_int(0));
     // Thread locality
-    Store_field(global,6,GV->isThreadLocal()? Val_int(1): Val_int(0));
-    // TODO section
+    Store_field(global,3,GV->isThreadLocal()? Val_int(1): Val_int(0));
     // global variable or global constant?
-    Store_field(global,8,GV->isConstant()? Val_int(1):Val_int(0));
+    Store_field(global,4,GV->isConstant()? Val_int(1):Val_int(0));
+    // information
+    Store_field(global,5,convert(cast<GlobalValue>(GV)));
 
     CAMLreturn(global);
   }

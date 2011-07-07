@@ -240,39 +240,39 @@ type arg = {
   typ: typ
 }
 
+type info = {
+  linkage: linkage;
+  visibility: visibility;
+  alignment: alignment;
+  section: string
+}
+
 type alias = { 
   aname: string;
-  alinkage: linkage option;
-  avisibility: visibility option;
   aaliaseeType: typ;
-  aaliasee: var
+  aaliasee: var;
+  ainfo: info
 }
 
 type func = {
-  flinkage: linkage option;
-  fvisibility: visibility option;
+  fname: string; 
   fcconv: calling_convention option;
   fretat: attribute list;
   frettype: typ;
-  fname: string; 
   fargs: arg list;
   ffattr: fattribute list;
-  fsection: string option;
-  falign: alignment option;
   fgc: gc option;
-  fbody: code
+  fbody: code;
+  finfo: info
 }
 
 type global = {
   gname: string;
-  galignment: alignment option;
-  gvisibility: visibility option;
-  glinkage: linkage option;
   gtyp: typ;
   ginit: constant option;
   gthread_local: bool;
-  gsection: string option;
-  gconstant: bool
+  gconstant: bool;
+  ginfo: info
 }
 
 type namedtype = {
