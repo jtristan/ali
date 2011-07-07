@@ -9,6 +9,9 @@ I cannot do blockaddress because I need to have the label for the block so
 Improve variable naming
 arreibutes
 constants have types, top dans alias, global, etc...
+
+Do global alias reall have a visibility, sectio, etc... ?
+
 *)
 
 type 'a option = 
@@ -502,6 +505,39 @@ let print_instruction oc i =
     | Call (dst,_,_,_,retyp,f,args,_) -> Printf.fprintf oc "%s = call %a %a (%a)" dst print_type retyp print_top f print_args args
 ;;
 
+let print_linkage oc l = 
+  flush stdout;
+  let s = 
+    match l with
+      | Private -> "private"
+      | Linker_private -> "linker_private"
+      | Linker_private_weak -> "linker_private_weak"
+      | Linker_private_weak_def_auto -> "linker_private_weak_def_auto"
+      | Internal -> "internal"
+      | Available_externally -> "available_externally"
+      | Linkonce -> "linkonce"
+      | Weak -> "weak"
+      | Common -> "common"
+      | Appending -> "appending"
+      | Extern_weak -> "extern_weak"
+      | Linkonce_odr -> "linkonce_odr"
+      | Weak_odr -> "weal_odr"
+      | Externally_visible -> ""
+      | Dllimport -> "dllimport"
+      | Dllexport -> "dllexport"
+  in
+  Printf.fprintf oc "%s" s
+
+let print_visibility oc v =
+  flush stdout;
+  let s = 
+    match v with
+      | Default -> "" 
+      | Hidden -> "hidden"
+      | Protected -> "protected"
+  in
+  Printf.fprintf oc "%s" s
+
 let print_basicBlock oc b = 
   Printf.fprintf oc "; <label>:%s\n" b.label; flush stdout;
   List.iter (fun i -> print_instruction oc i; Printf.fprintf oc "\n"; flush stdout) b.instrs;
@@ -528,7 +564,7 @@ let print_function oc (f: func) =
   Printf.fprintf oc "define @%s (%a) {\n%a}\n" f.fname print_formal_params f.fargs print_body f.fbody
 
 let print_named_type oc nt = 
-  Printf.fprintf oc "%s = type %a\n" nt.tname print_type nt.ttype; flush stdout  
+  Printf.fprintf oc "%s = type %a\n" ("%"^nt.tname) print_type nt.ttype; flush stdout  
 
 let is_string t = 
   match t with
@@ -546,22 +582,33 @@ let print_constant_as_string oc l =
     | Some (ArrayC l) -> List.iter (fun x -> Printf.fprintf oc "%c" (itc x)) l
     | _ -> failwith "print_constant_as_string false assumption\n"
 
+let string_alignment a = 
+  if Int32.to_int a = 0 then "" else ", align "^ (Int32.to_string a) 
+
+let string_section s = 
+  if s = "" then "" else ", section \"s\""
+
 let print_global oc g = 
-  Printf.fprintf oc "@%s = %s %a %a \n" 
+  Printf.fprintf oc "@%s = %a %a %s %a %a%s%s\n" 
     g.gname 
+    print_visibility g.ginfo.visibility
+    print_linkage g.ginfo.linkage
     (if g.gconstant then "constant" else "global") 
     print_type g.gtyp 
     (fun oc init -> if is_string g.gtyp 
      then (print_option print_constant) oc init (* (print_constant_as_string oc init) *)
      else (print_option print_constant) oc init
-    ) g.ginit; 
-  flush stdout
+    ) g.ginit
+    (string_section g.ginfo.section)
+    (string_alignment g.ginfo.alignment)
+  ; flush stdout
 
 let print_module oc (m: modul) = 
   Printf.fprintf oc "; ModuleID = '%s'\n" m.midentifier; flush stdout;
   Printf.fprintf oc "\"target datalayout = %s\"\n" m.mdatalayout; flush stdout;
   Printf.fprintf oc "\"target triple = %s\"\n\n" m.mtargettriple; flush stdout;
   List.iter (print_named_type oc) m.mtypenames; flush stdout ;
+  Printf.fprintf oc "\n";
   List.iter (print_global oc) m.mglobals; flush stdout; 
   List.iter (print_function oc) m.mfunctions 
 
