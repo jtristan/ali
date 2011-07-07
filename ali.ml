@@ -7,9 +7,8 @@ Missing inline assembly
 I cannot do blockaddress because I need to have the label for the block so
    I need to keep around the mapping from blocks to names. 
 Improve variable naming
-Module name and target layouts
-linkage and visibity
-alias 
+arreibutes
+constants have types, top dans alias, global, etc...
 *)
 
 type 'a option = 

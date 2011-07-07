@@ -925,6 +925,25 @@ namespace {
     CAMLreturn(global);
   }
 
+  // Conversion of an alias to a value of type 'alias'
+  // The constant, of course, has a type. Maybe that should be a top... 
+  value convert(const GlobalAlias *GA) {
+    CAMLparam0();
+    CAMLlocal1(alias);
+
+    alias = caml_alloc(4,0);
+    // name
+    Store_field(alias,0,caml_copy_string(GA->getNameStr().c_str()));
+    // aliasee type
+    Store_field(alias,1,convert(GA->getAliasee()->getType()));
+    // aliasee 
+    Store_field(alias,2,convert(GA->getAliasee()));
+    // info
+    Store_field(alias,3,convert(cast<GlobalValue>(GA)));
+
+    CAMLreturn(alias);
+  }
+
   // Conversion of a module to a value of type 'modul'
   value convert(const Module *M) {
     CAMLparam0();
