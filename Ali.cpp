@@ -135,14 +135,11 @@ namespace {
     CAMLreturn(l);
   }  
 
-
-
-
   /*
     The id_ functions give the OCaml encoding for various LLVM enums
    */
 
-  int translateOpcode(int opcode) {
+  int id_opcode(int opcode) {
     switch (opcode) {
     case Instruction::Add: return 0;
     case Instruction::FAdd: return 0;
@@ -162,86 +159,93 @@ namespace {
     case Instruction::And: return 7;
     case Instruction::Or: return 8;
     case Instruction::Xor: return 9;
-    default: return 3000;
+    default: exit(1);
     }
   }
 
-  value convert(CallingConv::ID x) {
-    return Val_int(x);
-  }
-
-  value convert(Attributes x) {
-    CAMLparam0();
-    CAMLlocal1(attr);
-
+  int id_cc(CallingConv::ID x) {
     switch (x) {
-      // Param attributes
-    case Attribute::ZExt: attr = Val_int(0);
-    case Attribute::SExt: attr = Val_int(1);
-    case Attribute::InReg: attr = Val_int(2);
-    case Attribute::ByVal: attr = Val_int(3);
-    case Attribute::StructRet: attr = Val_int(4);
-    case Attribute::NoAlias: attr = Val_int(5);
-    case Attribute::NoCapture: attr = Val_int(6);
-    case Attribute::Nest: attr = Val_int(7);
-      // Function attributes
-    case Attribute::AlwaysInline: attr = Val_int(0);
-    case Attribute::Hotpatch: attr = Val_int(1);
-      // There should be an attribute nonlazybond but I can't find it
-    case Attribute::InlineHint: attr = Val_int(3);
-    case Attribute::Naked: attr = Val_int(4);
-    case Attribute::NoImplicitFloat: attr = Val_int(5);
-    case Attribute::NoInline: attr = Val_int(6);
-    case Attribute::NoRedZone: attr = Val_int(7);
-    case Attribute::NoReturn: attr = Val_int(8);
-    case Attribute::NoUnwind: attr = Val_int(9);
-    case Attribute::OptimizeForSize: attr = Val_int(10);
-    case Attribute::ReadNone: attr = Val_int(11);
-    case Attribute::ReadOnly: attr = Val_int(12);
-    case Attribute::StackProtect: attr = Val_int(13);
-    case Attribute::StackProtectReq: attr = Val_int(14);
+    case CallingConv::C: return 0;
+    case CallingConv::Fast: return 1;
+    case CallingConv::Cold: return 2;
+    default: exit(1);
     }
-
-    CAMLreturn(attr);
   }
+
+//   value convert(Attributes x) {
+//     CAMLparam0();
+//     CAMLlocal1(attr);
+
+//     switch (x) {
+//       // Param attributes
+//     case Attribute::ZExt: attr = Val_int(0);
+//     case Attribute::SExt: attr = Val_int(1);
+//     case Attribute::InReg: attr = Val_int(2);
+//     case Attribute::ByVal: attr = Val_int(3);
+//     case Attribute::StructRet: attr = Val_int(4);
+//     case Attribute::NoAlias: attr = Val_int(5);
+//     case Attribute::NoCapture: attr = Val_int(6);
+//     case Attribute::Nest: attr = Val_int(7);
+//       // Function attributes
+//     case Attribute::AlwaysInline: attr = Val_int(0);
+//     case Attribute::Hotpatch: attr = Val_int(1);
+//       // There should be an attribute nonlazybond but I can't find it
+//     case Attribute::InlineHint: attr = Val_int(3);
+//     case Attribute::Naked: attr = Val_int(4);
+//     case Attribute::NoImplicitFloat: attr = Val_int(5);
+//     case Attribute::NoInline: attr = Val_int(6);
+//     case Attribute::NoRedZone: attr = Val_int(7);
+//     case Attribute::NoReturn: attr = Val_int(8);
+//     case Attribute::NoUnwind: attr = Val_int(9);
+//     case Attribute::OptimizeForSize: attr = Val_int(10);
+//     case Attribute::ReadNone: attr = Val_int(11);
+//     case Attribute::ReadOnly: attr = Val_int(12);
+//     case Attribute::StackProtect: attr = Val_int(13);
+//     case Attribute::StackProtectReq: attr = Val_int(14);
+//     }
+
+//     CAMLreturn(attr);
+//   }
 
   int id_linkage(GlobalValue::LinkageTypes l) {
     int id = 0;
 
     switch (l) {
-    case GlobalValue::PrivateLinkage: id = 0; break;
-    case GlobalValue::LinkerPrivateLinkage: id = 1; break;
-    case GlobalValue::LinkerPrivateWeakLinkage: id = 2; break;
-    case GlobalValue::LinkerPrivateWeakDefAutoLinkage: id = 3; break;
-    case GlobalValue::InternalLinkage: id = 4; break;
-    case GlobalValue::AvailableExternallyLinkage: id = 5; break;
-    case GlobalValue::LinkOnceAnyLinkage: id = 6; break;
-    case GlobalValue::WeakAnyLinkage: id = 7; break;
-    case GlobalValue::CommonLinkage: id = 8; break;
-    case GlobalValue::AppendingLinkage: id = 9; break;
-    case GlobalValue::ExternalWeakLinkage: id = 10; break;
-    case GlobalValue::LinkOnceODRLinkage: id = 11; break;
-    case GlobalValue::WeakODRLinkage: id = 12; break;
-    case GlobalValue::ExternalLinkage: id = 13; break;
-    case GlobalValue::DLLImportLinkage: id = 14; break;
-    case GlobalValue::DLLExportLinkage: id = 15; break;
-    default: check(true,"linkage"); break;
+    case GlobalValue::PrivateLinkage: return 0;
+    case GlobalValue::LinkerPrivateLinkage: return 1;
+    case GlobalValue::LinkerPrivateWeakLinkage: return 2;
+    case GlobalValue::LinkerPrivateWeakDefAutoLinkage: return 3;
+    case GlobalValue::InternalLinkage: return 4;
+    case GlobalValue::AvailableExternallyLinkage: return 5;
+    case GlobalValue::LinkOnceAnyLinkage: return 6;
+    case GlobalValue::WeakAnyLinkage: return 7;
+    case GlobalValue::CommonLinkage: return 8;
+    case GlobalValue::AppendingLinkage: return 9;
+    case GlobalValue::ExternalWeakLinkage: return 10;
+    case GlobalValue::LinkOnceODRLinkage: return 11;
+    case GlobalValue::WeakODRLinkage: return 12;
+    case GlobalValue::ExternalLinkage: return 13;
+    case GlobalValue::DLLImportLinkage: return 14;
+    case GlobalValue::DLLExportLinkage: return 15;
+    default: exit(1);
     }
 
     return id;
   }   
 
   int id_visibility(GlobalValue::VisibilityTypes v) {
-    int id = 0;
-
     switch (v) {
-    case GlobalValue::DefaultVisibility: id = 0; break;
-    case GlobalValue::HiddenVisibility: id = 1; break;
-    case GlobalValue::ProtectedVisibility: id = 2; break;
-    default: check(true,"visibility"); break;
+    case GlobalValue::DefaultVisibility: return 0;
+    case GlobalValue::HiddenVisibility: return 1;
+    case GlobalValue::ProtectedVisibility: return 2;
+    default: exit(1);
     }
-    
-    return id;
+  }
+
+  int id_predicate(int predicate) {
+    if (predicate >= CmpInst::FIRST_FCMP_PREDICATE && predicate <= CmpInst::LAST_FCMP_PREDICATE)
+      return predicate;
+    else return predicate - 32;
   }
 
   typedef std::map<const Type *,int> tMap;
@@ -503,71 +507,53 @@ namespace {
     CAMLreturn(tuple);
   }
   
-  value mkOpcode(const Instruction *I) {
+  value convert(const BinaryOperator *B) {
     CAMLparam0();
     CAMLlocal1(op);
 
     bool b;
     int wrap = 0;
-    switch (I->getOpcode()) {
+    switch (B->getOpcode()) {
     case Instruction::Add: 
     case Instruction::Sub:
     case Instruction::Mul:
     case Instruction::Shl:
-      op = caml_alloc(1,translateOpcode(I->getOpcode()));
-      if (cast<BinaryOperator>(I)->hasNoUnsignedWrap()) 
-	if (cast<BinaryOperator>(I)->hasNoSignedWrap()) wrap = 3;
+      op = caml_alloc(1,id_opcode(B->getOpcode()));
+      if (B->hasNoUnsignedWrap()) 
+	if (B->hasNoSignedWrap()) wrap = 3;
 	else wrap = 2;
-      else if (cast<BinaryOperator>(I)->hasNoSignedWrap()) wrap = 1;
+      else if (B->hasNoSignedWrap()) wrap = 1;
       Store_field(op,0,Val_int(wrap)); 
       break;
     case Instruction::UDiv:
     case Instruction::SDiv:
     case Instruction::LShr:
     case Instruction::AShr:
-      op = caml_alloc(1,translateOpcode(I->getOpcode()));
+      op = caml_alloc(1,id_opcode(B->getOpcode()));
       b = false;
-      if (cast<BinaryOperator>(I)->isExact()) b = true;
-      Store_field(op,0,b);
+      if (B->isExact()) b = true;
+      Store_field(op,0,b?Val_int(1):Val_int(0));
       break;
     default: 
-      op = Val_int(translateOpcode(I->getOpcode()));
+      op = Val_int(id_opcode(B->getOpcode()));
     }
 
     CAMLreturn(op);
   }
 
-
-
-
-  // My Use of User may be awckward it's that a user can be an instruction
-  // or a constant but rather that instruction and constant really inherit stuff
-  // from User (as opposed to type or constant that are interfaces for instance)
   value mkBinInstruction(const Instruction *I) {
     CAMLparam0();
     CAMLlocal1(inst);
 
     inst = caml_alloc(5,5);
     Store_field(inst,0,caml_copy_string(instNames.get(I).c_str()));
-    Store_field(inst,1,mkOpcode(I)); 
+    Store_field(inst,1,convert(cast<BinaryOperator>(I))); 
     Store_field(inst,2,convert(I->getType()));
     Store_field(inst,3,mkTop(I->getOperand(0))); 
     Store_field(inst,4,mkTop(I->getOperand(1)));
 
     CAMLreturn(inst);
   }
-
-  value mkPredicate(int predicate) {
-    CAMLparam0();
-    CAMLlocal1(pred);
-    
-    if (predicate >= CmpInst::FIRST_FCMP_PREDICATE && predicate <= CmpInst::LAST_FCMP_PREDICATE)
-      pred = Val_int(predicate);
-    else pred = Val_int(predicate - 32);
-
-    CAMLreturn(pred);
-  }
-
 
   value convert(const Use *U) {
     CAMLparam0();
@@ -677,7 +663,7 @@ namespace {
       else code = 12;
       inst = caml_alloc(5,code);
       Store_field(inst,0,caml_copy_string(var.c_str()));
-      Store_field(inst,1,mkPredicate(C->getPredicate()));
+      Store_field(inst,1,Val_int(id_predicate(C->getPredicate())));
       Store_field(inst,2,convert(C->getType()));
       Store_field(inst,3,mkTop(C->getOperand(0)));
       Store_field(inst,4,mkTop(C->getOperand(1)));
@@ -805,7 +791,7 @@ namespace {
       inst = caml_alloc(8,20);
       Store_field(inst,0,caml_copy_string(var.c_str()));
       Store_field(inst,1,C->isTailCall()?Val_int(1):Val_int(0));
-      Store_field(inst,2,convert(C->getCallingConv()));
+      Store_field(inst,2,Val_int(id_cc (C->getCallingConv())));
       Store_field(inst,3,Val_int(0)); // NIY
       Store_field(inst,4,convert(C->getType()));
       Store_field(inst,5,mkTop(C->getCalledValue()));

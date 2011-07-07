@@ -1,20 +1,4 @@
 
-(* TODO:
-Missing constant expressions;
-Missing cc n calling convention  
-Missing metadata
-Missing inline assembly
-I cannot do blockaddress because I need to have the label for the block so
-   I need to keep around the mapping from blocks to names. 
-Improve variable naming
-arreibutes
-constants have types, top dans alias, global, etc... 
-types ain constant records
-maybe convert value should always build a top...
-
-refactor convert(CallingConv) and convert(Attributes)
-
-*)
 
 type 'a option = 
   | None
@@ -176,8 +160,6 @@ type fattribute =
   | Readonly
   | Ssp
   | Sspreq
-
-type intrinsic
 
 type label = string
 
@@ -401,7 +383,7 @@ let print_bop oc b =
       | Or -> "or"
       | Xor -> "xor"
   in
-  Printf.fprintf oc "%s" s
+  Printf.fprintf oc "%s" s; flush stdout
 ;;
 
 let print_icmpOp oc o =
