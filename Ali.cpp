@@ -59,25 +59,11 @@ namespace {
   Namer<const Instruction*> instNames;
   Namer<const BasicBlock*> blockNames;
 
-//   template <class T, class IT> value convertList(const iplist<T> *L) {
-//     CAMLparam0();
-//     CAMLlocal4(l,tmp,cell,a);
-    
-//     l = Val_int(0);
-//     tmp = Val_int(0);
-//     for (IT I = L->begin(), E = L->end(); I != E; ++I) {
-//       cell = caml_alloc(2,0);
-//       a = convert(I); 
-//       Store_field(cell,0,a);
-//       Store_field(cell,1,Val_int(0));
-//       if (l == Val_int(0)) l = cell;
-//       if (tmp != Val_int(0)) Store_field(tmp,1,cell); 
-//       tmp = cell;
-//     }
-    
-//     CAMLreturn(l);
-//   }  
+/*
+  Helper functions to build derived OCaml values lists, options, and tuples.
+ */
 
+  
   template <typename IT> value convertIT(IT begin,IT end) {
     CAMLparam0();
     CAMLlocal4(l,tmp,cell,a);
@@ -97,6 +83,16 @@ namespace {
     CAMLreturn(l);
   }  
 
+  value mkTuple(value fst, value snd) {
+    CAMLparam2(fst,snd);
+    CAMLlocal1(tuple);
+
+    tuple = caml_alloc(2,0);
+    Store_field(tuple,0,fst);
+    Store_field(tuple,1,snd);
+
+    CAMLreturn(tuple);
+  }
 
   void check(bool ok, std::string s) {
 
@@ -534,16 +530,7 @@ namespace {
     CAMLreturn(pred);
   }
 
-  value mkTuple(value fst, value snd) {
-    CAMLparam2(fst,snd);
-    CAMLlocal1(tuple);
 
-    tuple = caml_alloc(2,0);
-    Store_field(tuple,0,fst);
-    Store_field(tuple,1,snd);
-
-    CAMLreturn(tuple);
-  }
  
   value convert(const Use *U) {
     CAMLparam0();
@@ -574,7 +561,7 @@ namespace {
     CAMLreturn(v);
   }
 
-
+  // Conversion of an instruction to a value of type 'instruction'
   value convert(const Instruction *I) {
     CAMLparam0();
     CAMLlocal2(inst,lv); 
@@ -584,8 +571,12 @@ namespace {
     instNames.assign(I);
     std::string var = instNames.get(I);
     inst = Val_int(0);
+
+    // Binary operators
     if (I->isBinaryOp() && (ok = true)) 
       inst = mkBinInstruction(I);
+
+    // Load from memory
     if (isa<LoadInst>(I) && (ok = true)) {
       inst = caml_alloc(4,7);
       const LoadInst *L = cast<LoadInst>(I);
@@ -594,6 +585,8 @@ namespace {
       Store_field(inst,2,mkTop(L->getPointerOperand()));
       Store_field(inst,3,mkAlignment(L->getAlignment()));
     }
+
+    // Allocation of local variable
     if (isa<AllocaInst>(I) && (ok = true)) {
       inst = caml_alloc(4,6);
       const AllocaInst *A = cast<AllocaInst>(I);
@@ -602,6 +595,8 @@ namespace {
       Store_field(inst,2,convertOption(A->getArraySize())); 
       Store_field(inst,3,mkAlignment(A->getAlignment()));
     }
+
+    // Store to memory
     if (isa<StoreInst>(I) && (ok = true)) {
       inst = caml_alloc(4,8);
       const StoreInst *S = cast<StoreInst>(I);
@@ -610,11 +605,15 @@ namespace {
       Store_field(inst,2,mkTop(S->getPointerOperand()));
       Store_field(inst,3,mkAlignment(S->getAlignment()));
     }
+
+    // Return 
     if (isa<ReturnInst>(I) && (ok = true)) {
       const ReturnInst *R = cast<ReturnInst>(I);
       inst = caml_alloc(1,0);
       Store_field(inst,0,convertOption(R->getReturnValue()));
     }
+
+    // Branch
     if (isa<BranchInst>(I) && (ok = true)) {
       inst = caml_alloc(3,1);
       const BranchInst *B = cast<BranchInst>(I);
@@ -632,6 +631,8 @@ namespace {
 	Store_field(inst,2,Val_int(0));
       }
     }
+
+    // Comparison instruction
     if (isa<CmpInst>(I) && (ok = true)) {
       int code;
       const CmpInst *C = cast<CmpInst>(I);
@@ -644,8 +645,12 @@ namespace {
       Store_field(inst,3,mkTop(C->getOperand(0)));
       Store_field(inst,4,mkTop(C->getOperand(1)));
     }
+    // Unreachable instruction
     if (isa<UnreachableInst>(I) && (ok = true)) inst = Val_int(1);
+    // Stack unwind
     if (isa<UnwindInst>(I) && (ok = true)) inst = Val_int(0);
+
+    // Get a value from a vector
     if (isa<ExtractElementInst>(I) && (ok = true)) {
       const ExtractElementInst *E = cast<ExtractElementInst>(I);
       inst = caml_alloc(3,15);
@@ -653,6 +658,8 @@ namespace {
       Store_field(inst,1,mkTop(E->getVectorOperand()));
       Store_field(inst,2,convert(E->getIndexOperand()));
     }
+
+    // Insert a value into a vector
     if (isa<InsertElementInst>(I) && (ok = true)) {
       const InsertElementInst *E = cast<InsertElementInst>(I);
       inst = caml_alloc(4,16);
@@ -661,6 +668,8 @@ namespace {
       Store_field(inst,2,mkTop(E->getOperand(1)));
       Store_field(inst,3,convert(E->getOperand(2)));
     }
+
+    // Shuffling of vector
     if (isa<ShuffleVectorInst>(I) && (ok = true)) {
       const ShuffleVectorInst *E = cast<ShuffleVectorInst>(I);
       inst = caml_alloc(4,17);
@@ -669,6 +678,8 @@ namespace {
       Store_field(inst,2,mkTop(E->getOperand(1)));
       Store_field(inst,3,mkTop(E->getOperand(2)));
     }
+
+    // Phi node
     if (isa<PHINode>(I) && (ok = true)) {
        const PHINode *N = cast<PHINode>(I);
        inst = caml_alloc(3,13);
@@ -682,6 +693,8 @@ namespace {
        Store_field(inst,2,lv);
        l.clear();
      }
+
+    // Casts
     if (isa<CastInst>(I) && (ok = true)) {
       const CastInst *C = cast<CastInst>(I);
       inst = caml_alloc(4,10);
@@ -690,6 +703,8 @@ namespace {
       Store_field(inst,2,mkTop(C->getOperand(0)));
       Store_field(inst,3,convert(C->getDestTy()));
     }
+
+    // Get a value from a struct or an array
     if (isa<ExtractValueInst>(I) && (ok = true)) {
       const ExtractValueInst *E = cast<ExtractValueInst>(I);
       inst = caml_alloc(3,18);
@@ -698,6 +713,8 @@ namespace {
       lv = convertIT<ExtractValueInst::idx_iterator>(E->idx_begin(),E->idx_end()); 
       Store_field(inst,2,lv);
     }
+
+    // insert a vlue into a struct or an array
     if (isa<InsertValueInst>(I) && (ok = true)) {
       const InsertValueInst *E = cast<InsertValueInst>(I);
       inst = caml_alloc(4,19);
@@ -707,16 +724,21 @@ namespace {
       lv = convertIT<InsertValueInst::idx_iterator>(E->idx_begin(),E->idx_end());
       Store_field(inst,3,lv);
     }
+
+    // Switch
     if (isa<SwitchInst>(I)) inst = caml_alloc(4,2);
-//       { 
-//       const SwitchInst *S = cast<SwitchInst>(I);
-//       inst = caml_alloc(4,2);
-//       Store_field(inst,0,caml_copy_string(var.c_str()));
-//       Store_field(inst,1,mkTop(S->getCondition()));
-//       Store_field(inst,2,caml_copy_string(blockNames.get(S->getDefaultDest())));
-//       Store_field(inst,3,);
-//     }
+    //       { 
+    //       const SwitchInst *S = cast<SwitchInst>(I);
+    //       inst = caml_alloc(4,2);
+    //       Store_field(inst,0,caml_copy_string(var.c_str()));
+    //       Store_field(inst,1,mkTop(S->getCondition()));
+    //       Store_field(inst,2,caml_copy_string(blockNames.get(S->getDefaultDest())));
+    //       Store_field(inst,3,);
+    //     }
+    // Invoke an exception
     if (isa<InvokeInst>(I)) inst = caml_alloc(8,4);
+
+    // Forging a pointer 
     if (isa<GetElementPtrInst>(I) && (ok = true)) { 
       const GetElementPtrInst *G = cast<GetElementPtrInst>(I);
       inst = caml_alloc(4,9);
@@ -726,6 +748,8 @@ namespace {
       lv = convertIT<User::const_op_iterator>(G->idx_begin(),G->idx_end());      
       Store_field(inst,3,lv);
     }
+
+    // Value selection
     if (isa<SelectInst>(I) && (ok = true)) {
       const SelectInst *S = cast<SelectInst>(I);
       inst = caml_alloc(4,14);
@@ -734,7 +758,11 @@ namespace {
       Store_field(inst,2,mkTop(S->getTrueValue()));
       Store_field(inst,3,mkTop(S->getFalseValue()));
     }
+
+    // Variable argument function call
     if (isa<VAArgInst>(I)) inst = caml_alloc(1,21);
+
+    // Function call (including intrinsics)
     if (isa<CallInst>(I) && (ok = true))  {
       const CallInst *C = cast<CallInst>(I);
       inst = caml_alloc(8,20);
@@ -749,6 +777,8 @@ namespace {
       Store_field(inst,6,lv); 
       Store_field(inst,7,Val_int(0)); // NIY
     }
+
+    // Indirect branch to a label
     if (isa<IndirectBrInst>(I) && (ok = true)) {
       inst = caml_alloc(2,3);
       const IndirectBrInst *B = cast<IndirectBrInst>(I);
@@ -761,22 +791,23 @@ namespace {
     check(ok,"instruction");
     CAMLreturn(inst);
   }
-    
+
+  // Conversion of a basic block to a value of type 'basicBlock'
   value convert(const BasicBlock *B) {
     CAMLparam0();
-    CAMLlocal2(block,l);
+    CAMLlocal1(block);
 
     block = caml_alloc(2,0);
     Store_field(block,0,caml_copy_string(blockNames.get(B).c_str()));
-    l = convertIT<BasicBlock::const_iterator>(B->begin(),B->end());
-    Store_field(block,1,l);
+    Store_field(block,1,convertIT<BasicBlock::const_iterator>(B->begin(),B->end()));
 
     CAMLreturn(block);
   }
 
+  // Conversion of a function to a value of type 'func'
   value convert (const Function *F) {
     CAMLparam0();
-    CAMLlocal4(f,s,args,body);
+    CAMLlocal1(f);
 
     errs() << "Converting " << F->getNameStr() << "...";
     f = caml_alloc(12,0);
@@ -798,6 +829,7 @@ namespace {
     CAMLreturn(f);    
   }
   
+  // Conversion of a type symbol table entry to a value of type 'namedtype'
   value convert(TypeSymbolTable::const_iterator TI) {
     CAMLparam0();
     CAMLlocal1(entry);
@@ -814,6 +846,7 @@ namespace {
     CAMLreturn(entry);
   }
 
+  // Conversion of a global variable to a value of type 'global'
   value convert(const GlobalVariable *GV) {
     CAMLparam0();
     CAMLlocal2(global,ini);
@@ -837,6 +870,7 @@ namespace {
     CAMLreturn(global);
   }
 
+  // Conversion of a module to a value of type 'modul'
   value convert(const Module *M) {
     CAMLparam0();
     CAMLlocal1(module);
