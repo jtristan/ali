@@ -1,3 +1,18 @@
+//===- Ali.cpp - Conversion of the LLVM IR to an OCAML value --------------===//
+//
+//                                  ALI
+//
+// Copyrigth (c) 2011 Jean-Baptiste Tristan
+// This file is distributed under the MIT license.
+// See LICENSE for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the conversion of the intermediate representation of
+// an LLVM program into an OCaml value.
+//
+//===----------------------------------------------------------------------===//
+
 #include "llvm/Pass.h"
 #include "llvm/Function.h"
 #include "llvm/Support/raw_ostream.h"
@@ -59,10 +74,44 @@ namespace {
   Namer<const Instruction*> instNames;
   Namer<const BasicBlock*> blockNames;
 
-/*
-  Helper functions to build derived OCaml values lists, options, and tuples.
- */
+  /*
+    Helper functions to build derived OCaml values lists, options, and tuples.
+  */
 
+  value mkTuple(value fst, value snd) {
+    CAMLparam2(fst,snd);
+    CAMLlocal1(tuple);
+
+    tuple = caml_alloc(2,0);
+    Store_field(tuple,0,fst);
+    Store_field(tuple,1,snd);
+
+    CAMLreturn(tuple);
+  }
+
+  value mkSome(value v) {
+    CAMLparam1(v);
+    CAMLlocal1(op);
+
+    op = caml_alloc(1,0);
+    Store_field(op,0,v);
+
+    CAMLreturn(op);
+  }
+
+  /*
+    check is a debug function that stops the conversion if something could
+    not be translated. 
+   */
+
+  void check(bool ok, std::string s) {
+
+    bool stop_mode = false;
+    if (!ok && stop_mode) { 
+      errs() << "No rule to convert " << s << "\n"; 
+      exit(1);
+    }
+  }
   
   template <typename IT> value convertIT(IT begin,IT end) {
     CAMLparam0();
@@ -83,27 +132,114 @@ namespace {
     CAMLreturn(l);
   }  
 
-  value mkTuple(value fst, value snd) {
-    CAMLparam2(fst,snd);
-    CAMLlocal1(tuple);
 
-    tuple = caml_alloc(2,0);
-    Store_field(tuple,0,fst);
-    Store_field(tuple,1,snd);
 
-    CAMLreturn(tuple);
-  }
 
-  void check(bool ok, std::string s) {
+  /*
+    The id_ functions give the OCaml encoding for various LLVM enums
+   */
 
-    bool stop_mode = false;
-    if (!ok && stop_mode) { 
-      errs() << "No rule to convert " << s << "\n"; 
-      exit(1);
+  int translateOpcode(int opcode) {
+    switch (opcode) {
+    case Instruction::Add: return 0;
+    case Instruction::FAdd: return 0;
+    case Instruction::Sub: return 1;
+    case Instruction::FSub: return 1;
+    case Instruction::Mul: return 2;
+    case Instruction::FMul: return 2;
+    case Instruction::UDiv: return 3;
+    case Instruction::SDiv: return 4;
+    case Instruction::FDiv: return 3;
+    case Instruction::URem: return 4;
+    case Instruction::SRem: return 5;
+    case Instruction::FRem: return 6;
+    case Instruction::Shl: return 5;
+    case Instruction::LShr: return 6;
+    case Instruction::AShr: return 7;
+    case Instruction::And: return 7;
+    case Instruction::Or: return 8;
+    case Instruction::Xor: return 9;
+    default: return 3000;
     }
   }
 
+  value convert(CallingConv::ID x) {
+    return Val_int(x);
+  }
 
+  value convert(Attributes x) {
+    CAMLparam0();
+    CAMLlocal1(attr);
+
+    switch (x) {
+      // Param attributes
+    case Attribute::ZExt: attr = Val_int(0);
+    case Attribute::SExt: attr = Val_int(1);
+    case Attribute::InReg: attr = Val_int(2);
+    case Attribute::ByVal: attr = Val_int(3);
+    case Attribute::StructRet: attr = Val_int(4);
+    case Attribute::NoAlias: attr = Val_int(5);
+    case Attribute::NoCapture: attr = Val_int(6);
+    case Attribute::Nest: attr = Val_int(7);
+      // Function attributes
+    case Attribute::AlwaysInline: attr = Val_int(0);
+    case Attribute::Hotpatch: attr = Val_int(1);
+      // There should be an attribute nonlazybond but I can't find it
+    case Attribute::InlineHint: attr = Val_int(3);
+    case Attribute::Naked: attr = Val_int(4);
+    case Attribute::NoImplicitFloat: attr = Val_int(5);
+    case Attribute::NoInline: attr = Val_int(6);
+    case Attribute::NoRedZone: attr = Val_int(7);
+    case Attribute::NoReturn: attr = Val_int(8);
+    case Attribute::NoUnwind: attr = Val_int(9);
+    case Attribute::OptimizeForSize: attr = Val_int(10);
+    case Attribute::ReadNone: attr = Val_int(11);
+    case Attribute::ReadOnly: attr = Val_int(12);
+    case Attribute::StackProtect: attr = Val_int(13);
+    case Attribute::StackProtectReq: attr = Val_int(14);
+    }
+
+    CAMLreturn(attr);
+  }
+
+  int id_linkage(GlobalValue::LinkageTypes l) {
+    int id = 0;
+
+    switch (l) {
+    case GlobalValue::PrivateLinkage: id = 0; break;
+    case GlobalValue::LinkerPrivateLinkage: id = 1; break;
+    case GlobalValue::LinkerPrivateWeakLinkage: id = 2; break;
+    case GlobalValue::LinkerPrivateWeakDefAutoLinkage: id = 3; break;
+    case GlobalValue::InternalLinkage: id = 4; break;
+    case GlobalValue::AvailableExternallyLinkage: id = 5; break;
+    case GlobalValue::LinkOnceAnyLinkage: id = 6; break;
+    case GlobalValue::WeakAnyLinkage: id = 7; break;
+    case GlobalValue::CommonLinkage: id = 8; break;
+    case GlobalValue::AppendingLinkage: id = 9; break;
+    case GlobalValue::ExternalWeakLinkage: id = 10; break;
+    case GlobalValue::LinkOnceODRLinkage: id = 11; break;
+    case GlobalValue::WeakODRLinkage: id = 12; break;
+    case GlobalValue::ExternalLinkage: id = 13; break;
+    case GlobalValue::DLLImportLinkage: id = 14; break;
+    case GlobalValue::DLLExportLinkage: id = 15; break;
+    default: check(true,"linkage"); break;
+    }
+
+    return id;
+  }   
+
+  int id_visibility(GlobalValue::VisibilityTypes v) {
+    int id = 0;
+
+    switch (v) {
+    case GlobalValue::DefaultVisibility: id = 0; break;
+    case GlobalValue::HiddenVisibility: id = 1; break;
+    case GlobalValue::ProtectedVisibility: id = 2; break;
+    default: check(true,"visibility"); break;
+    }
+    
+    return id;
+  }
 
   typedef std::map<const Type *,int> tMap;
 
@@ -363,46 +499,7 @@ namespace {
     
     CAMLreturn(tuple);
   }
-
-  // ConvertOption builds an OCaml option with the type and content of the value
-  value convertOption(const Value *V) {
-    CAMLparam0();
-    CAMLlocal1(op);
-
-    if (V == NULL) 
-      op = Val_int(0);
-    else {
-      op = caml_alloc(1,0);
-      Store_field(op,0,mkTop(V));
-    }
-
-    CAMLreturn(op);
-  }
   
-  int translateOpcode(int opcode) {
-    switch (opcode) {
-    case Instruction::Add: return 0;
-    case Instruction::FAdd: return 0;
-    case Instruction::Sub: return 1;
-    case Instruction::FSub: return 1;
-    case Instruction::Mul: return 2;
-    case Instruction::FMul: return 2;
-    case Instruction::UDiv: return 3;
-    case Instruction::SDiv: return 4;
-    case Instruction::FDiv: return 3;
-    case Instruction::URem: return 4;
-    case Instruction::SRem: return 5;
-    case Instruction::FRem: return 6;
-    case Instruction::Shl: return 5;
-    case Instruction::LShr: return 6;
-    case Instruction::AShr: return 7;
-    case Instruction::And: return 7;
-    case Instruction::Or: return 8;
-    case Instruction::Xor: return 9;
-    default: return 3000;
-    }
-  }
-
   value mkOpcode(const Instruction *I) {
     CAMLparam0();
     CAMLlocal1(op);
@@ -457,68 +554,6 @@ namespace {
     CAMLreturn(inst);
   }
 
-  value mkAlignment(unsigned al) {
-    CAMLparam0();
-    CAMLlocal1(alignment);
-
-    if (al == 0) alignment = Val_int(0);
-    else { 
-      alignment = caml_alloc(1,0);
-      Store_field(alignment,0,caml_copy_int32(al));
-    }
-
-    CAMLreturn(alignment);
-  } 
-
-  value convert(CallingConv::ID x) {
-    return Val_int(x);
-  }
-
-  value convert(Attributes x) {
-    CAMLparam0();
-    CAMLlocal1(attr);
-
-    switch (x) {
-      // Param attributes
-    case Attribute::ZExt: attr = Val_int(0);
-    case Attribute::SExt: attr = Val_int(1);
-    case Attribute::InReg: attr = Val_int(2);
-    case Attribute::ByVal: attr = Val_int(3);
-    case Attribute::StructRet: attr = Val_int(4);
-    case Attribute::NoAlias: attr = Val_int(5);
-    case Attribute::NoCapture: attr = Val_int(6);
-    case Attribute::Nest: attr = Val_int(7);
-      // Function attributes
-    case Attribute::AlwaysInline: attr = Val_int(0);
-    case Attribute::Hotpatch: attr = Val_int(1);
-      // There should be an attribute nonlazybond but I can't find it
-    case Attribute::InlineHint: attr = Val_int(3);
-    case Attribute::Naked: attr = Val_int(4);
-    case Attribute::NoImplicitFloat: attr = Val_int(5);
-    case Attribute::NoInline: attr = Val_int(6);
-    case Attribute::NoRedZone: attr = Val_int(7);
-    case Attribute::NoReturn: attr = Val_int(8);
-    case Attribute::NoUnwind: attr = Val_int(9);
-    case Attribute::OptimizeForSize: attr = Val_int(10);
-    case Attribute::ReadNone: attr = Val_int(11);
-    case Attribute::ReadOnly: attr = Val_int(12);
-    case Attribute::StackProtect: attr = Val_int(13);
-    case Attribute::StackProtectReq: attr = Val_int(14);
-    }
-
-    CAMLreturn(attr);
-  }
-
-  value mkSome(value v) {
-    CAMLparam1(v);
-    CAMLlocal1(op);
-
-    op = caml_alloc(1,0);
-    Store_field(op,0,v);
-
-    CAMLreturn(op);
-  }
-
   value mkPredicate(int predicate) {
     CAMLparam0();
     CAMLlocal1(pred);
@@ -531,7 +566,6 @@ namespace {
   }
 
 
- 
   value convert(const Use *U) {
     CAMLparam0();
     CAMLlocal1(u);
@@ -583,7 +617,7 @@ namespace {
       Store_field(inst,0,caml_copy_string(var.c_str()));
       Store_field(inst,1,L->isVolatile()? Val_int(1):Val_int(0));
       Store_field(inst,2,mkTop(L->getPointerOperand()));
-      Store_field(inst,3,mkAlignment(L->getAlignment()));
+      Store_field(inst,3,caml_copy_int32(L->getAlignment()));
     }
 
     // Allocation of local variable
@@ -592,8 +626,8 @@ namespace {
       const AllocaInst *A = cast<AllocaInst>(I);
       Store_field(inst,0,caml_copy_string(var.c_str()));
       Store_field(inst,1,convert(A->getAllocatedType()));
-      Store_field(inst,2,convertOption(A->getArraySize())); 
-      Store_field(inst,3,mkAlignment(A->getAlignment()));
+      Store_field(inst,2,mkSome(mkTop(A->getArraySize()))); // Meh... 
+      Store_field(inst,3,caml_copy_int32(A->getAlignment()));
     }
 
     // Store to memory
@@ -603,14 +637,14 @@ namespace {
       Store_field(inst,0,S->isVolatile()? Val_int(1):Val_int(0));
       Store_field(inst,1,mkTop(S->getValueOperand()));
       Store_field(inst,2,mkTop(S->getPointerOperand()));
-      Store_field(inst,3,mkAlignment(S->getAlignment()));
+      Store_field(inst,3,caml_copy_int32(S->getAlignment()));
     }
 
     // Return 
     if (isa<ReturnInst>(I) && (ok = true)) {
       const ReturnInst *R = cast<ReturnInst>(I);
       inst = caml_alloc(1,0);
-      Store_field(inst,0,convertOption(R->getReturnValue()));
+      Store_field(inst,0,(R->getReturnValue() == NULL)? Val_int(0): mkSome(mkTop(R->getReturnValue())));
     }
 
     // Branch
@@ -804,44 +838,7 @@ namespace {
     CAMLreturn(block);
   }
 
-  int id_linkage(GlobalValue::LinkageTypes l) {
-    int id = 0;
 
-    switch (l) {
-    case GlobalValue::PrivateLinkage: id = 0; break;
-    case GlobalValue::LinkerPrivateLinkage: id = 1; break;
-    case GlobalValue::LinkerPrivateWeakLinkage: id = 2; break;
-    case GlobalValue::LinkerPrivateWeakDefAutoLinkage: id = 3; break;
-    case GlobalValue::InternalLinkage: id = 4; break;
-    case GlobalValue::AvailableExternallyLinkage: id = 5; break;
-    case GlobalValue::LinkOnceAnyLinkage: id = 6; break;
-    case GlobalValue::WeakAnyLinkage: id = 7; break;
-    case GlobalValue::CommonLinkage: id = 8; break;
-    case GlobalValue::AppendingLinkage: id = 9; break;
-    case GlobalValue::ExternalWeakLinkage: id = 10; break;
-    case GlobalValue::LinkOnceODRLinkage: id = 11; break;
-    case GlobalValue::WeakODRLinkage: id = 12; break;
-    case GlobalValue::ExternalLinkage: id = 13; break;
-    case GlobalValue::DLLImportLinkage: id = 14; break;
-    case GlobalValue::DLLExportLinkage: id = 15; break;
-    default: check(true,"linkage"); break;
-    }
-
-    return id;
-  }   
-
-  int id_visibility(GlobalValue::VisibilityTypes v) {
-    int id = 0;
-
-    switch (v) {
-    case GlobalValue::DefaultVisibility: id = 0; break;
-    case GlobalValue::HiddenVisibility: id = 1; break;
-    case GlobalValue::ProtectedVisibility: id = 2; break;
-    default: check(true,"visibility"); break;
-    }
-    
-    return id;
-  }
 
   // I need to choose whether alignment should have an option type or not...
   value convert(const GlobalValue *GV) {
@@ -964,6 +961,11 @@ namespace {
     Store_field(module,7,convertIT<TypeSymbolTable::const_iterator>(M->getTypeSymbolTable().begin(),M->getTypeSymbolTable().end()));   
 
     CAMLreturn(module);
+  }
+
+  Module build(value v) {
+    
+    
   }
 
   bool Ali::runOnModule(Module &M) {

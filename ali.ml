@@ -8,9 +8,10 @@ I cannot do blockaddress because I need to have the label for the block so
    I need to keep around the mapping from blocks to names. 
 Improve variable naming
 arreibutes
-constants have types, top dans alias, global, etc...
+constants have types, top dans alias, global, etc... 
+maybe convert value should always build a top...
 
-Do global alias reall have a visibility, sectio, etc... ?
+refactor convert(CallingConv) and convert(Attributes)
 
 *)
 
@@ -192,9 +193,9 @@ type instruction =
   | Unwind
   | Unreachable
   | BinOp of var * bop * typ * top * top
-  | Alloca of var * typ * (typ * int32) option * alignment option
-  | Load of var * volatile * top * alignment option  
-  | Store of volatile * top * top * alignment option
+  | Alloca of var * typ * (typ * int32) option * alignment
+  | Load of var * volatile * top * alignment
+  | Store of volatile * top * top * alignment
   | GetElementPtr of var * inbound * top * top list 
   | Cast of var * castop * top * typ
   | Icmp of var * icmpOp * typ * top * top
@@ -444,9 +445,9 @@ let print_fcmpOp oc o =
 
 
 let print_align oc a = 
-  match a with
-    | None -> Printf.fprintf oc ""
-    | Some a -> Printf.fprintf oc ", align %s" (Int32.to_string a)
+  match Int32.to_int a with
+    | 0 -> Printf.fprintf oc ""
+    | _ -> Printf.fprintf oc ", align %s" (Int32.to_string a)
 
 let string_volatile v = if v then "volatile " else ""
 
