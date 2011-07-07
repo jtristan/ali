@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Pass.h"
+
 #include "llvm/Function.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Constants.h"
@@ -25,6 +26,8 @@
 #include "llvm/GlobalVariable.h"
 #include "llvm/Module.h"
 #include "llvm/TypeSymbolTable.h"
+
+#include "llvm/LLVMContext.h"
 
 #include <map>
 #include <sstream>
@@ -963,9 +966,15 @@ namespace {
     CAMLreturn(module);
   }
 
-  Module build(value v) {
+  Module * build(value v) {
+    CAMLparam1(v);
     
-    
+    if (!Is_block(v)) exit(1);
+    StringRef s = StringRef(String_val(Field(v,0)));
+    LLVMContext context;
+    Module * m = new Module(s,context);
+
+    CAMLreturnT(Module *,m);
   }
 
   bool Ali::runOnModule(Module &M) {

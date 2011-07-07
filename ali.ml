@@ -9,6 +9,7 @@ I cannot do blockaddress because I need to have the label for the block so
 Improve variable naming
 arreibutes
 constants have types, top dans alias, global, etc... 
+types ain constant records
 maybe convert value should always build a top...
 
 refactor convert(CallingConv) and convert(Attributes)
