@@ -952,6 +952,21 @@ namespace {
     CAMLreturn(module);
   }
 
+  const Type * build(value v, LLVMContext &C) {
+    CAMLparam1(v);
+
+    const Type * t;
+    if (Is_long(v)) t = Type::getPrimitiveType(C,(Type::TypeID) Int_val(v));
+    else {
+      switch (Tag_val(v)) {
+      case 0: t = IntegerType::get(C,Int32_val(Field(v,0))); break;
+      default: exit(1);
+      }
+    }
+
+    CAMLreturnT(const Type *,t);
+  }
+
   Module * build(value v) {
     CAMLparam1(v);
     
