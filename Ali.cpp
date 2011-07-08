@@ -69,6 +69,9 @@ namespace {
       out << "%" << ++counter;
       var = out.str();
       m[t] = var; }
+    void assign(T t,std::string s) {
+      m[t] = s;
+    }
     std::string get(T t) { return m[t]; }
     void clear() { counter = 0; m.clear(); }
     void reg(T t, std::string name) { m[t] = name; } 
@@ -591,7 +594,10 @@ namespace {
 
     bool ok = false;
     //errs() << *I << "\n";
-    instNames.assign(I);
+    if (I->hasName()) 
+      instNames.assign(I,"gloubiboulga");
+    else 
+      instNames.assign(I);
     std::string var = instNames.get(I);
     inst = Val_int(0);
 
@@ -960,6 +966,7 @@ namespace {
     else {
       switch (Tag_val(v)) {
       case 0: t = IntegerType::get(C,Int32_val(Field(v,0))); break;
+      case 4: 
       default: exit(1);
       }
     }

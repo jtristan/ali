@@ -1,0 +1,25 @@
+
+P1:
+___
+
+- Complete and fix constant expressions
+- Translate Invoke 
+- Translate switch
+- Review IndirectBr 
+- Fix naming
+- Translate attributes
+- Get rid of mkTop?
+- Implement named address spaces
+- Types in struct constants
+- convert arrays of bytes to strings
+
+P2:
+___
+
+- Implement AP ints and AP floats
+- Complete calling conventions
+- Handle Metadata
+- Handle inline assembly
+
+
+
