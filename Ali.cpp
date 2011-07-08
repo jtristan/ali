@@ -71,7 +71,7 @@ namespace {
       var = out.str();
       m[t] = var; }
     void assign(T t,StringRef Name) {
-      m[t] =  Name.str(); 
+      m[t] = Name.str(); 
     }
     std::string get(T t) { return m[t]; }
     void clear() { counter = 0; m.clear(); }
@@ -596,8 +596,10 @@ namespace {
     bool ok = false;
     std::string var;
     //errs() << *I << "\n";
-    if (I->hasName()) 
+    if (I->hasName()) {
       instNames.assign(I,I->getName());
+      //var = instNames.get(I);
+    }
     else if (!I->getType()->isVoidTy()) {
       instNames.assign(I);
       var = instNames.get(I);

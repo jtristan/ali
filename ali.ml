@@ -286,6 +286,13 @@ let rec print_list printer oc l =
     | x :: l -> Printf.fprintf oc " %a," printer x; print_list printer oc l
 ;;
 
+let rec print_list_2 printer oc l =
+  match l with
+    | [] -> ()
+    | x :: [] -> Printf.fprintf oc "%a" printer x
+    | x :: l -> Printf.fprintf oc "%a, " printer x; print_list printer oc l
+;;  
+
 let rec print_type oc t = 
   flush stdout;
   let f = fun s -> Printf.fprintf oc "%s" s; flush stdout in 
@@ -458,10 +465,6 @@ let print_option printer oc o =
 let print_label oc l =
   Printf.fprintf oc "%s" l
 
-let print_args oc args =
-  flush stdout;
-  List.iter (fun x -> Printf.fprintf oc "%a, " print_top x) args
-
 let print_instruction oc i =
   Printf.fprintf oc " "; flush stdout;
   match i with
@@ -488,7 +491,7 @@ let print_instruction oc i =
     | InsertElement _ -> Printf.fprintf oc "insertelement"
     | ShuffleVector _ -> Printf.fprintf oc "shufflevector"
     | Va_arg _ -> Printf.fprintf oc "va_arg"
-    | Call (dst,_,_,_,retyp,f,args,_) -> Printf.fprintf oc "%s = call %a %a (%a)" dst print_type retyp print_top f print_args args
+    | Call (dst,_,_,_,retyp,f,args,_) -> Printf.fprintf oc "%s = call %a %a (%a)" (pr dst) print_type retyp print_top f (print_list_2 print_top) args
 ;;
 
 let print_linkage oc l = 
@@ -540,7 +543,7 @@ let print_arg oc arg =
 
 let print_formal_params oc args = 
   flush stdout;
-  (print_list print_arg) oc args 
+  (print_list_2 print_arg) oc args 
 ;;
 
 open Gc
