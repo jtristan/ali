@@ -347,10 +347,12 @@ let rec print_constant oc c =
     | GetElementPtrC (c,l) -> Printf.fprintf oc "getelementptr %a %a" print_constant c (print_list print_constant) l 
     | CastC (c,tsrc,o,tdst) -> Printf.fprintf oc "cast" 
 
+let pr s = "%"^s
+
 let print_operand oc o = 
   match o with
     | Const c ->  Printf.fprintf oc "%a" print_constant c 
-    | Var v ->  Printf.fprintf oc "%s" v
+    | Var v ->  Printf.fprintf oc "%s" (pr v)
 
 let string_wrap w = 
   match w with
@@ -470,14 +472,14 @@ let print_instruction oc i =
     | Invoke _ -> Printf.fprintf oc "Invoke"
     | Unwind _ -> Printf.fprintf oc "Unwind"
     | Unreachable _ -> Printf.fprintf oc "Unreachable"
-    | BinOp (dst,o,t,e1,e2) -> Printf.fprintf oc "%s = %a %a %a, %a" dst print_bop o print_type t print_top e1 print_top e2
-    | Alloca (dst,t,_,al) -> Printf.fprintf oc "%s = alloca %a%a" dst print_type t print_align al
-    | Load (dst,vol,o,al) -> Printf.fprintf oc "%s = %sload %a%a" dst (string_volatile vol) print_top o print_align al
+    | BinOp (dst,o,t,e1,e2) -> Printf.fprintf oc "%s = %a %a %a, %a" (pr dst) print_bop o print_type t print_top e1 print_top e2
+    | Alloca (dst,t,_,al) -> Printf.fprintf oc "%s = alloca %a%a" (pr dst) print_type t print_align al
+    | Load (dst,vol,o,al) -> Printf.fprintf oc "%s = %sload %a%a" (pr dst) (string_volatile vol) print_top o print_align al
     | Store (vol,e1,e2,al) -> Printf.fprintf oc "%sstore %a, %a%a" (string_volatile vol) print_top e1 print_top e2 print_align al
-    | GetElementPtr (dst,b,e,idx) -> Printf.fprintf oc "%s = getelementptr %s %a, %a" dst (string_inbounds b) print_top e (print_list print_top) idx
-    | Icmp (dst,c,_,e1,e2) -> Printf.fprintf oc "%s = icmp %a %a, %a" dst print_icmpOp c  print_top e1 print_top e2
-    | Fcmp (dst,c,_,e1,e2) -> Printf.fprintf oc "%s = fcmp %a %a, %a" dst print_fcmpOp c  print_top e1 print_top e2
-    | Cast (dst,op,e,t) -> Printf.printf "%s = %a %a to %a" dst print_castOp op print_top e print_type t 
+    | GetElementPtr (dst,b,e,idx) -> Printf.fprintf oc "%s = getelementptr %s %a, %a" (pr dst) (string_inbounds b) print_top e (print_list print_top) idx
+    | Icmp (dst,c,_,e1,e2) -> Printf.fprintf oc "%s = icmp %a %a, %a" (pr dst) print_icmpOp c  print_top e1 print_top e2
+    | Fcmp (dst,c,_,e1,e2) -> Printf.fprintf oc "%s = fcmp %a %a, %a" (pr dst) print_fcmpOp c  print_top e1 print_top e2
+    | Cast (dst,op,e,t) -> Printf.printf "%s = %a %a to %a" (pr dst) print_castOp op print_top e print_type t 
     | Select _ -> Printf.fprintf oc "select"
     | Phi _ -> Printf.fprintf oc "phi"
     | ExtractValue _ -> Printf.fprintf oc "extractvalue"

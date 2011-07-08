@@ -67,11 +67,11 @@ namespace {
     void assign(T t) { 
       std::string var;
       std::ostringstream out;
-      out << "%" << ++counter;
+      out << ++counter;
       var = out.str();
       m[t] = var; }
     void assign(T t,StringRef Name) {
-      m[t] =  Name.str();
+      m[t] =  Name.str(); 
     }
     std::string get(T t) { return m[t]; }
     void clear() { counter = 0; m.clear(); }
@@ -594,12 +594,14 @@ namespace {
     CAMLlocal2(inst,lv); 
 
     bool ok = false;
+    std::string var;
     //errs() << *I << "\n";
     if (I->hasName()) 
       instNames.assign(I,I->getName());
-    else 
+    else if (!I->getType()->isVoidTy()) {
       instNames.assign(I);
-    std::string var = instNames.get(I);
+      var = instNames.get(I);
+    }
     inst = Val_int(0);
 
     // Binary operators
@@ -859,7 +861,7 @@ namespace {
     CAMLparam0();
     CAMLlocal1(f);
 
-    caml_callback(*caml_named_value("clean"),Val_int(0));
+    //caml_callback(*caml_named_value("clean"),Val_int(0));
     errs() << "Converting " << F->getNameStr() << "...";
     f = caml_alloc(9,0);
     instNames.clear();
