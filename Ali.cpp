@@ -34,6 +34,7 @@
 #include <exception>
 #include <list>
 
+
 extern "C"{
 #include </usr/local/lib/ocaml/caml/mlvalues.h>
 #include </usr/local/lib/ocaml/caml/alloc.h>
@@ -69,8 +70,8 @@ namespace {
       out << "%" << ++counter;
       var = out.str();
       m[t] = var; }
-    void assign(T t,std::string s) {
-      m[t] = s;
+    void assign(T t,StringRef Name) {
+      m[t] =  Name.str();
     }
     std::string get(T t) { return m[t]; }
     void clear() { counter = 0; m.clear(); }
@@ -595,7 +596,7 @@ namespace {
     bool ok = false;
     //errs() << *I << "\n";
     if (I->hasName()) 
-      instNames.assign(I,"gloubiboulga");
+      instNames.assign(I,I->getName());
     else 
       instNames.assign(I);
     std::string var = instNames.get(I);
@@ -858,6 +859,7 @@ namespace {
     CAMLparam0();
     CAMLlocal1(f);
 
+    caml_callback(*caml_named_value("clean"),Val_int(0));
     errs() << "Converting " << F->getNameStr() << "...";
     f = caml_alloc(9,0);
     instNames.clear();

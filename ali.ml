@@ -613,6 +613,6 @@ let set () =
   Gc.set { (Gc.get()) with Gc.minor_heap_size = 1000000000 }
 ;;
 
-let _ = Callback.register "clean" Gc.compact
+let _ = Callback.register "clean" Gc.minor
 let _ = Callback.register "set" set
 
