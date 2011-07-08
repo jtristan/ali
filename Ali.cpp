@@ -71,7 +71,10 @@ namespace {
       var = out.str();
       m[t] = var; }
     void assign(T t,StringRef Name) {
-      m[t] = Name.str(); 
+      std::ostringstream buf;
+      char* s = strdup(Name.str().c_str());
+      m[t] = std::string(s); //buf.str(); 
+      //m[t] = Name.str(); 
     }
     std::string get(T t) { return m[t]; }
     void clear() { counter = 0; m.clear(); }
@@ -598,7 +601,7 @@ namespace {
     //errs() << *I << "\n";
     if (I->hasName()) {
       instNames.assign(I,I->getName());
-      //var = instNames.get(I);
+      var = instNames.get(I);
     }
     else if (!I->getType()->isVoidTy()) {
       instNames.assign(I);
