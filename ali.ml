@@ -258,7 +258,8 @@ type global = {
   ginit: constant option;
   gthread_local: bool;
   gconstant: bool;
-  ginfo: info
+  ginfo: info;
+  gspace: string option
 }
 
 type namedtype = {
@@ -491,29 +492,29 @@ let print_instruction oc i =
     | InsertElement _ -> Printf.fprintf oc "insertelement"
     | ShuffleVector _ -> Printf.fprintf oc "shufflevector"
     | Va_arg _ -> Printf.fprintf oc "va_arg"
-    | Call (dst,_,_,_,retyp,f,args,_) -> Printf.fprintf oc "%s = call %a %a (%a)" (pr dst) print_type retyp print_top f (print_list_2 print_top) args
+    | Call (dst,_,_,_,retyp,f,args,_) -> Printf.fprintf oc "%s = call %a %a(%a)" (pr dst) print_type retyp print_top f (print_list_2 print_top) args
 ;;
 
 let print_linkage oc l = 
   flush stdout;
   let s = 
     match l with
-      | Private -> "private"
-      | Linker_private -> "linker_private"
-      | Linker_private_weak -> "linker_private_weak"
-      | Linker_private_weak_def_auto -> "linker_private_weak_def_auto"
-      | Internal -> "internal"
-      | Available_externally -> "available_externally"
-      | Linkonce -> "linkonce"
-      | Weak -> "weak"
-      | Common -> "common"
-      | Appending -> "appending"
-      | Extern_weak -> "extern_weak"
-      | Linkonce_odr -> "linkonce_odr"
-      | Weak_odr -> "weal_odr"
+      | Private -> " private"
+      | Linker_private -> " linker_private"
+      | Linker_private_weak -> " linker_private_weak"
+      | Linker_private_weak_def_auto -> " linker_private_weak_def_auto"
+      | Internal -> " internal"
+      | Available_externally -> " available_externally"
+      | Linkonce -> " linkonce"
+      | Weak -> " weak"
+      | Common -> " common"
+      | Appending -> " appending"
+      | Extern_weak -> " extern_weak"
+      | Linkonce_odr -> " linkonce_odr"
+      | Weak_odr -> " weal_odr"
       | Externally_visible -> ""
-      | Dllimport -> "dllimport"
-      | Dllexport -> "dllexport"
+      | Dllimport -> " dllimport"
+      | Dllexport -> " dllexport"
   in
   Printf.fprintf oc "%s" s
 
@@ -522,8 +523,8 @@ let print_visibility oc v =
   let s = 
     match v with
       | Default -> "" 
-      | Hidden -> "hidden"
-      | Protected -> "protected"
+      | Hidden -> " hidden"
+      | Protected -> " protected"
   in
   Printf.fprintf oc "%s" s
 
@@ -538,7 +539,7 @@ let print_body oc =
 
 let print_arg oc arg = 
   flush stdout; 
-  Printf.fprintf oc "%a %s" print_type arg.typ arg.nam
+  Printf.fprintf oc "%a %s" print_type arg.typ ("%"^arg.nam)
 ;;
 
 let print_formal_params oc args = 
@@ -550,7 +551,7 @@ open Gc
 
 let print_function oc (f: func) =
   flush stdout;
-  Printf.fprintf oc "define @%s (%a) {\n%a}\n" f.fname print_formal_params f.fargs print_body f.fbody
+  Printf.fprintf oc "define @%s (%a) {\n%a}\n\n" f.fname print_formal_params f.fargs print_body f.fbody
 
 let print_named_type oc nt = 
   Printf.fprintf oc "%s = type %a\n" ("%"^nt.tname) print_type nt.ttype; flush stdout  
@@ -560,15 +561,30 @@ let is_string t =
     | ArrayT (_,IntT i) -> Int32.to_int i = 8
     | _ -> false
 
+let hexdigit i = 
+  match i with
+    | 10 -> "A"
+    | 11 -> "B"
+    | 12 -> "C"
+    | 13 -> "D"
+    | 14 -> "E"
+    | 15 -> "F"
+    | _ -> Printf.sprintf "%d" i 
+
 let itc i = 
   flush stdout;
   match i with
-    | I i -> char_of_int (Int64.to_int i)
+    | I i -> 
+      let i = Int64.to_int i in
+      Printf.sprintf "%c%s%s" '\\' (hexdigit (i lsr 4)) (hexdigit (i land 0x0F)) 
     | _ -> failwith "false assmption for itc\n"
 
 let print_constant_as_string oc l = 
   match l with 
-    | Some (ArrayC l) -> List.iter (fun x -> Printf.fprintf oc "%c" (itc x)) l
+    | Some (ArrayC l) -> 
+      Printf.fprintf oc "c\"";
+      List.iter (fun x -> Printf.fprintf oc "%s" (itc x)) l;
+      Printf.fprintf oc "\""
     | _ -> failwith "print_constant_as_string false assumption\n"
 
 let string_alignment a = 
@@ -578,14 +594,15 @@ let string_section s =
   if s = "" then "" else ", section \"s\""
 
 let print_global oc g = 
-  Printf.fprintf oc "@%s = %a %a %s %a %a%s%s\n" 
+  Printf.fprintf oc "@%s =%a%a%a %s %a %a%s%s\n" 
     g.gname 
     print_visibility g.ginfo.visibility
     print_linkage g.ginfo.linkage
+    (print_option (fun oc s -> Printf.fprintf oc " %s" s)) g.gspace
     (if g.gconstant then "constant" else "global") 
     print_type g.gtyp 
     (fun oc init -> if is_string g.gtyp 
-     then (print_option print_constant) oc init (* (print_constant_as_string oc init) *)
+     then (print_constant_as_string oc init) 
      else (print_option print_constant) oc init
     ) g.ginit
     (string_section g.ginfo.section)

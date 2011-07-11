@@ -1,11 +1,25 @@
 open Dynlink;;
 open Callback;;
 
-let path = 
+let transform = 
   try
-    Sys.getenv "ALI"
+    Sys.getenv "TRANSFORM"
   with 
-    | Not_found -> failwith "You must setup the ALI environment vairable"
+    | Not_found -> failwith "You must set up the TRANSFORM environment variable"
+;;
+
+let stdlib = 
+  try 
+    Sys.getenv "OCAMLSTDLIB"
+  with
+    | Not_found -> failwith "You must set up the OCAMLSTDLIB environment variable"
+;;
+
+let alilib = 
+  try 
+    Sys.getenv "ALILIB"
+  with
+    | Not_found -> failwith "You must set up the alilib environment variable"
 ;;
 
 let error_msg msg = 
@@ -36,11 +50,11 @@ allow_unsafe_modules true;;
 
 try 
   Printf.printf "Loading the standard library\n";
-  loadfile "/usr/local/lib/ocaml/stdlib.cma";
-  Printf.printf "Loading the academic LLVM interface/n";
-  loadfile "/Users/jean-baptistetristan/Code/llvm-2.9/lib/Transforms/ali/ali.cmo";
-  Printf.printf "Loading your plugin/n";
-  loadfile path
+  loadfile stdlib;
+  Printf.printf "Loading the academic LLVM interface\n";
+  loadfile alilib;
+  Printf.printf "Loading your plugin\n";
+  loadfile transform
 with
   | Error e -> error_msg (decypher_error e)
 ;;

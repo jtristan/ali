@@ -866,7 +866,7 @@ namespace {
     CAMLparam0();
     CAMLlocal1(f);
 
-    //caml_callback(*caml_named_value("clean"),Val_int(0));
+    caml_callback(*caml_named_value("clean"),Val_int(0));
     errs() << "Converting " << F->getNameStr() << "...";
     f = caml_alloc(9,0);
     instNames.clear();
@@ -909,7 +909,7 @@ namespace {
     CAMLparam0();
     CAMLlocal1(global);
 
-    global = caml_alloc(6,0);
+    global = caml_alloc(7,0);
     // Global variable identifier
     Store_field(global,0,caml_copy_string(GV->getNameStr().c_str()));
     // Global variable type
@@ -922,6 +922,16 @@ namespace {
     Store_field(global,4,GV->isConstant()? Val_int(1):Val_int(0));
     // information
     Store_field(global,5,convert(cast<GlobalValue>(GV)));
+    // Address space
+    if (unsigned AddressSpace = GV->getType()->getAddressSpace()) {
+      if (GV->hasUnnamedAddr()) Store_field(global,6,mkSome(caml_copy_string("addrspace(unnamed_addr)")));
+      else {
+	std::ostringstream out;
+	out << "addrspace(" << AddressSpace << ")";
+	Store_field(global,6,mkSome(caml_copy_string(out.str().c_str())));
+      }
+    }
+    else Store_field(global,6,Val_int(0));
 
     CAMLreturn(global);
   }
