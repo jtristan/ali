@@ -19,5 +19,10 @@ ___
 - Handle Metadata
 - Handle inline assembly
 
+Reconstruction:
+_______________
 
-
+LOSS OF INFORMATION: A poiter type may have an AddressSpace. 
+LOSS OF INFORMATION: Structure can be packed
+LOSS OF INFORMATION: Number of elements in a vector
+LOSS OF INFORMATION: Function types has a boolean is var_arg

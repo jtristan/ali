@@ -33,6 +33,7 @@
 #include <sstream>
 #include <exception>
 #include <list>
+#include <vector>
 
 
 extern "C"{
@@ -977,15 +978,41 @@ namespace {
     CAMLreturn(module);
   }
 
-  const Type * build(value v, LLVMContext &C) {
+  typedef std::vector<const Type *> typevector;
+  typedef std::map<std::string,const Type *> typefinder;
+
+  const Type * buildType(value v, LLVMContext &C, typefinder & f); 
+
+  typevector buildTypeVector(value v, LLVMContext &C, typefinder & f) { 
     CAMLparam1(v);
+
+    typevector l;
+    if (Is_block(v)) {
+      const Type * t = buildType(Field(v,0),C,f);
+      typevector l = buildTypeVector(Field(v,1),C,f);
+      l.insert(l.begin(),t);
+    }    
+    
+    CAMLreturnT(typevector,l);
+  }
+
+  const Type * buildType(value v, LLVMContext &C, typefinder &f) {
+    CAMLparam1(v);
+
+    typevector *A;
 
     const Type * t;
     if (Is_long(v)) t = Type::getPrimitiveType(C,(Type::TypeID) Int_val(v));
     else {
       switch (Tag_val(v)) {
       case 0: t = IntegerType::get(C,Int32_val(Field(v,0))); break;
-      case 4: 
+      case 1: 
+	A = new typevector(buildTypeVector(Field(v,1),C,f)); 
+	t = FunctionType::get(buildType(Field(v,0),C,f),A); break; // LOI
+      case 2: t = StructType::get(C,buildTypeVector(Field(v,0),C,f)); break; // LOI
+      case 3: t = ArrayType::get(buildType(Field(v,1),C,f),Int32_val(Field(v,0))); break;
+      case 4: t = PointerType::getUnqual(buildType(Field(v,0),C,f)); break; // LOI
+      case 6: t = f[std::string(String_val(Field(v,0)))];
       default: exit(1);
       }
     }
@@ -993,7 +1020,7 @@ namespace {
     CAMLreturnT(const Type *,t);
   }
 
-  Module * build(value v) {
+  Module * buildModule(value v) {
     CAMLparam1(v);
     
     if (!Is_block(v)) exit(1);

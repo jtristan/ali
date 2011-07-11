@@ -18,7 +18,7 @@ type typ =
   | IntT of int32
   | FunctionT of typ * typ list
   | StructT of typ list
-  | ArrayT of int32 * typ
+  | ArrayT of int32 * typ (* int64 in LLVM *)
   | PointerT of typ
   | VectorT of typ
   | Rec of int32
@@ -313,7 +313,7 @@ let rec print_type oc t =
     | VectorT t -> Printf.fprintf oc "<%a>" print_type t
     | StructT t -> Printf.fprintf oc "{%a}" (print_list print_type) t 
     | Opaque -> Printf.fprintf oc "opaque"
-    | FunctionT (r,args) -> Printf.fprintf oc "%a (%a)" print_type r (print_list print_type) args
+    | FunctionT (r,args) -> Printf.fprintf oc "%a" print_type r (* (print_list print_type) args *)
     | Rec i -> Printf.fprintf oc "rec %s" (Int32.to_string i) 
     | Named s -> Printf.fprintf oc "%s" ("%"^s)
 
@@ -556,9 +556,9 @@ let print_function oc (f: func) =
 let print_named_type oc nt = 
   Printf.fprintf oc "%s = type %a\n" ("%"^nt.tname) print_type nt.ttype; flush stdout  
 
-let is_string t = 
+let is_string t l = 
   match t with
-    | ArrayT (_,IntT i) -> Int32.to_int i = 8
+    | ArrayT (_,IntT i) -> Int32.to_int i = 8 
     | _ -> false
 
 let hexdigit i = 
