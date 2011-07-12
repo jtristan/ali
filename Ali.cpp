@@ -764,15 +764,18 @@ namespace {
     }
 
     // Switch
-    if (isa<SwitchInst>(I)) inst = caml_alloc(4,2);
-    //       { 
-    //       const SwitchInst *S = cast<SwitchInst>(I);
-    //       inst = caml_alloc(4,2);
-    //       Store_field(inst,0,caml_copy_string(var.c_str()));
-    //       Store_field(inst,1,mkTop(S->getCondition()));
-    //       Store_field(inst,2,caml_copy_string(blockNames.get(S->getDefaultDest())));
-    //       Store_field(inst,3,);
-    //     }
+    if (isa<SwitchInst>(I)) { 
+      const SwitchInst *S = cast<SwitchInst>(I);
+      inst = caml_alloc(4,2);
+      Store_field(inst,0,caml_copy_string(var.c_str()));
+      Store_field(inst,1,mkTop(S->getCondition()));
+      Store_field(inst,2,caml_copy_string(blockNames.get(S->getDefaultDest()).c_str()));
+      std::list<const Constant *> l;
+      for (unsigned i = 0; i < S->getNumCases(); ++i) 
+	l.push_back(S->getCaseValue(i));      
+      Store_field(inst,3,convertIT<>(l.begin(),l.end())); // REVIEW
+      l.clear();
+    }
     // Invoke an exception
     if (isa<InvokeInst>(I)) inst = caml_alloc(8,4);
 

@@ -557,8 +557,18 @@ let print_named_type oc nt =
   Printf.fprintf oc "%s = type %a\n" ("%"^nt.tname) print_type nt.ttype; flush stdout  
 
 let is_string t l = 
+  let int_only l = 
+    match l with
+      | Some (ArrayC l) ->
+	List.fold_left 
+	  (fun b e -> b && 
+	    match e with 
+	      | I i when Int64.to_int i >= 0 -> true
+	      | _ -> false) true l
+      | _ -> false
+  in
   match t with
-    | ArrayT (_,IntT i) -> Int32.to_int i = 8 
+    | ArrayT (_,IntT i) -> Int32.to_int i = 8 && int_only l
     | _ -> false
 
 let hexdigit i = 
@@ -601,7 +611,7 @@ let print_global oc g =
     (print_option (fun oc s -> Printf.fprintf oc " %s" s)) g.gspace
     (if g.gconstant then "constant" else "global") 
     print_type g.gtyp 
-    (fun oc init -> if is_string g.gtyp 
+    (fun oc init -> if is_string g.gtyp init 
      then (print_constant_as_string oc init) 
      else (print_option print_constant) oc init
     ) g.ginit
