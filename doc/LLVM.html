@@ -16,7 +16,8 @@
 &nbsp;</div>
 <center><h1>Module <a href="type_LLVM.html">LLVM</a></h1></center>
 <br>
-<pre><span class="keyword">module</span> LLVM: <code class="code">sig</code> <a href="LLVM.html">..</a> <code class="code">end</code></pre><hr width="100%">
+<pre><span class="keyword">module</span> LLVM: <code class="code">sig</code> <a href="LLVM.html">..</a> <code class="code">end</code></pre>OCaml interface for the Low Level Virtual Machine<br>
+<hr width="100%">
 <br><code><span id="TYPEoption"><span class="keyword">type</span> <code class="type">'a</code> option</span> = </code><table class="typetable">
 <tr>
 <td align="left" valign="top" >
@@ -34,6 +35,8 @@
 </tr></table>
 
 
+<br>
+The LLVM types<br>
 <br><code><span id="TYPEtyp"><span class="keyword">type</span> <code class="type"></code>typ</span> = </code><table class="typetable">
 <tr>
 <td align="left" valign="top" >
@@ -163,6 +166,8 @@
 </tr></table>
 
 
+<br>
+LLVM operators<br>
 <br><code><span id="TYPEwrap"><span class="keyword">type</span> <code class="type"></code>wrap</span> = </code><table class="typetable">
 <tr>
 <td align="left" valign="top" >
@@ -604,6 +609,8 @@
 
 <pre><span id="TYPEindex"><span class="keyword">type</span> <code class="type"></code>index</span> = <code class="type">int32</code> </pre>
 
+<br>
+LLVM constants<br>
 <br><code><span id="TYPEconstant"><span class="keyword">type</span> <code class="type"></code>constant</span> = </code><table class="typetable">
 <tr>
 <td align="left" valign="top" >
@@ -946,6 +953,8 @@
 
 <pre><span id="TYPEtail"><span class="keyword">type</span> <code class="type"></code>tail</span> = <code class="type">bool</code> </pre>
 
+<br>
+Instructions<br>
 <br><code><span id="TYPEinstruction"><span class="keyword">type</span> <code class="type"></code>instruction</span> = </code><table class="typetable">
 <tr>
 <td align="left" valign="top" >
@@ -1561,4 +1570,6 @@
 <pre><span id="TYPEanalysis"><span class="keyword">type</span> <code class="type"></code>analysis</span> = <code class="type"><a href="LLVM.html#TYPEmodul">modul</a> -> unit</code> </pre>
 
 <pre><span id="EXCEPTIONCaml"><span class="keyword">exception</span> Caml</span></pre>
-<pre><span id="VALwrap"><span class="keyword">val</span> <a href="code_VALLLVM.wrap.html">wrap</a></span> : <code class="type">('a -> 'b) -> 'a -> 'b</code></pre><pre><span id="VALregister"><span class="keyword">val</span> <a href="code_VALLLVM.register.html">register</a></span> : <code class="type"><a href="LLVM.html#TYPEanalysis">analysis</a> -> unit</code></pre><pre><span id="VALset"><span class="keyword">val</span> <a href="code_VALLLVM.set.html">set</a></span> : <code class="type">unit -> unit</code></pre></body></html>
+<pre><span id="VALwrap"><span class="keyword">val</span> <a href="code_VALLLVM.wrap.html">wrap</a></span> : <code class="type">('a -> 'b) -> 'a -> 'b</code></pre><br>
+register makes your code available to LLVM<br>
+<pre><span id="VALregister"><span class="keyword">val</span> <a href="code_VALLLVM.register.html">register</a></span> : <code class="type"><a href="LLVM.html#TYPEanalysis">analysis</a> -> unit</code></pre><pre><span id="VALset"><span class="keyword">val</span> <a href="code_VALLLVM.set.html">set</a></span> : <code class="type">unit -> unit</code></pre></body></html>

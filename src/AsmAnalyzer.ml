@@ -9,7 +9,7 @@
 (*                                                                     *)
 (***********************************************************************)
 
-open Ali
+open LLVM
 
 type cornerbook = {
   mutable wrap: int;

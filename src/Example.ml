@@ -10,10 +10,10 @@
 (***********************************************************************)
 
 
-open Ali
+open LLVM
 
 let f (x : modul) = 
-  (* count x; print_report(); *) print x; flush stdout
+  (* count x; print_report(); *) AsmWriter.print x; flush stdout
   (*print x; flush stdout; x *)
 ;;
 

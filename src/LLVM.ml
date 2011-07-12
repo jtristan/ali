@@ -9,9 +9,13 @@
 (*                                                                     *)
 (***********************************************************************)
 
+(** OCaml interface for the Low Level Virtual Machine *)
+
 type 'a option = 
   | None
   | Some of 'a
+
+(** The LLVM types *)
 
 type typ =
   | Void
@@ -32,6 +36,8 @@ type typ =
   | VectorT of typ
   | Rec of int32
   | Named of string
+
+(** LLVM operators *)
 
 type wrap =
   | Wnone
@@ -109,6 +115,8 @@ type inbound = bool
 
 type index = int32
 
+(** LLVM constants *)
+
 type constant =
   | True
   | False
@@ -175,6 +183,8 @@ type label = string
 type top = typ * operand
 
 type tail = bool
+
+(** Instructions *)
 
 type instruction = 
   | Ret of top option
@@ -299,6 +309,8 @@ let wrap f =
   fun x ->
     try f x with 
       | _ -> raise Caml 
+
+(** register makes your code available to LLVM *)
 
 let register (f : analysis) = Callback.register "analysis" (wrap f)
 

@@ -9,7 +9,7 @@
 (*                                                                     *)
 (***********************************************************************)
 
-open Ali
+open LLVM
 
 let rec print_list printer oc l = 
   match l with
