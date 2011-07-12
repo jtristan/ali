@@ -1053,10 +1053,9 @@ namespace {
 
     Maccess = &M;
     v = convert(&M);
-    errs() << "Transformation\n" ;
-    w = caml_callback_exn(*caml_named_value("transform"),v); 
+    w = caml_callback_exn(*caml_named_value("analysis"),v); 
     if (Is_exception_result(w)) 
-      errs() << "An exception occured in the OCaml code.\n" ;
+      errs() << "Fatal error: uncaught exception from the OCaml code.\n" ;
 
     CAMLreturnT(bool,false);
   }
