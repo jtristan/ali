@@ -294,6 +294,10 @@ let rec print_list_2 printer oc l =
     | x :: l -> Printf.fprintf oc "%a, " printer x; print_list printer oc l
 ;;  
 
+let rec print_list_3 printer oc l = 
+  List.iter (fun x -> Printf.fprintf oc "%a" printer x) l
+;;
+
 let rec print_type oc t = 
   flush stdout;
   let f = fun s -> Printf.fprintf oc "%s" s; flush stdout in 
@@ -448,7 +452,8 @@ let string_inbounds i = if i then "inbounds" else ""
 
 let print_top oc t = 
   flush stdout;
-  Printf.fprintf oc "%a %a"  print_type (fst t) print_operand (snd t)
+  Printf.fprintf oc "%a %a"  print_type (fst t) print_operand (snd t);
+  flush stdout
 ;;
 
 let print_ret oc r =
@@ -466,16 +471,22 @@ let print_option printer oc o =
 let print_label oc l =
   Printf.fprintf oc "%s" l
 
+let print_switch_case oc (t,l) = 
+  flush stdout;
+  Printf.fprintf oc "    %a, label %s\n" print_top t ("%"^l);
+  flush stdout
+;;
+
 let print_instruction oc i =
   Printf.fprintf oc " "; flush stdout;
   match i with
     | Ret r -> Printf.fprintf oc "ret %a" (print_option print_top) r
     | Br (cond,l1,l2) -> Printf.fprintf oc "br %a %s %a" (print_option print_top) cond l1 (print_option print_label) l2  
-    | Switch _ -> Printf.fprintf oc "Switch"
-    | IndirectBr _ -> Printf.fprintf oc "IndirectBr"
-    | Invoke _ -> Printf.fprintf oc "Invoke"
-    | Unwind _ -> Printf.fprintf oc "Unwind"
-    | Unreachable _ -> Printf.fprintf oc "Unreachable"
+    | Switch (v,s,l) -> Printf.fprintf oc "switch %a, label %s [\n%a  ]" print_top v s (print_list_3 print_switch_case) l
+    | IndirectBr _ -> Printf.fprintf oc "indirectBr"
+    | Invoke _ -> Printf.fprintf oc "invoke"
+    | Unwind -> Printf.fprintf oc "unwind"
+    | Unreachable -> Printf.fprintf oc "unreachable"
     | BinOp (dst,o,t,e1,e2) -> Printf.fprintf oc "%s = %a %a %a, %a" (pr dst) print_bop o print_type t print_top e1 print_top e2
     | Alloca (dst,t,_,al) -> Printf.fprintf oc "%s = alloca %a%a" (pr dst) print_type t print_align al
     | Load (dst,vol,o,al) -> Printf.fprintf oc "%s = %sload %a%a" (pr dst) (string_volatile vol) print_top o print_align al

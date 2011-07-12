@@ -584,14 +584,25 @@ namespace {
   value convert(std::list<std::pair<BasicBlock *,Value *> >::const_iterator P) {
     CAMLparam0();
     CAMLlocal1(v);
-
+    
     const BasicBlock *B = P->first;
     const Value *V = P->second;
     v = mkTuple(caml_copy_string(blockNames.get(B).c_str()),convert(V));
-
+    
     CAMLreturn(v);
   }
-
+  
+  value convert(std::list<std::pair<const Constant *,std::string> >::const_iterator I) {
+    CAMLparam0();
+    CAMLlocal1(v);
+    
+    const Constant * C = I->first;
+    std::string S = I->second;
+    v = mkTuple(mkTop(C),caml_copy_string(S.c_str()));
+    
+    CAMLreturn(v);
+  }
+  
   // Conversion of an instruction to a value of type 'instruction'
   value convert(const Instruction *I) {
     CAMLparam0();
@@ -764,16 +775,18 @@ namespace {
     }
 
     // Switch
-    if (isa<SwitchInst>(I)) { 
+    if (isa<SwitchInst>(I) && (ok = true)) { 
       const SwitchInst *S = cast<SwitchInst>(I);
-      inst = caml_alloc(4,2);
-      Store_field(inst,0,caml_copy_string(var.c_str()));
-      Store_field(inst,1,mkTop(S->getCondition()));
-      Store_field(inst,2,caml_copy_string(blockNames.get(S->getDefaultDest()).c_str()));
-      std::list<const Constant *> l;
+      inst = caml_alloc(3,2);
+      Store_field(inst,0,mkTop(S->getCondition()));
+      Store_field(inst,1,caml_copy_string(blockNames.get(S->getDefaultDest()).c_str()));
+      typedef std::list<std::pair<const Constant *,std::string> > switchlist;
+      switchlist l;
+
       for (unsigned i = 0; i < S->getNumCases(); ++i) 
-	l.push_back(S->getCaseValue(i));      
-      Store_field(inst,3,convertIT<>(l.begin(),l.end())); // REVIEW
+	l.push_back(std::pair<const Constant *,std::string>(S->getCaseValue(i),blockNames.get(S->getSuccessor(i))));      
+
+      Store_field(inst,2,convertIT<switchlist::const_iterator>(l.begin(),l.end())); 
       l.clear();
     }
     // Invoke an exception

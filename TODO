@@ -4,7 +4,6 @@ ___
 
 - Complete and fix constant expressions
 - Translate Invoke 
-- Translate switch
 - Review IndirectBr 
 - Translate attributes
 - Get rid of mkTop?
